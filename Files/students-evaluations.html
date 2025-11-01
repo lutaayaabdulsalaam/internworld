@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Evaluations</title>
+  <style>
+    body { font-family: "Poppins", sans-serif; background-color: #f6f8fb; margin: 0; color: #333; }
+    header { background: #fff; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    header h1 { font-size: 22px; font-weight: 600; color: #1e293b; }
+    main { padding: 30px 40px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
+    th, td { padding: 14px 10px; text-align: left; font-size: 14px; }
+    th { background-color: #f1f5f9; font-weight: 600; border-bottom: 2px solid #e2e8f0; color: #1e293b; }
+    td { border-bottom: 1px solid #e5e7eb; color: #334155; }
+    .status { padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; display: inline-block; background: #e0f2fe; color: #0284c7; }
+    .back-btn { background-color: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; margin-bottom: 20px; }
+    .back-btn:hover { background-color: #1d4ed8; }
+    .eval-btn { background-color: #3b82f6; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+    .eval-btn:hover { background-color: #2563eb; }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      justify-content: center; align-items: center;
+    }
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 350px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .modal-content button { margin: 8px; padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; color: white; }
+    .performance-btn { background: #22c55e; }
+    .attendance-btn { background: #3b82f6; }
+    .mark-btn { background: #f59e0b; color: #000; }
+    .close-btn { background: #6b7280; color: #fff; padding: 6px 10px; border: none; border-radius: 6px; margin-top: 10px; cursor: pointer; }
+
+    /* Performance options inside modal */
+    .performance-options button {
+      background: #10b981;
+      color: #fff;
+      border: none;
+      margin: 5px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .performance-options button:hover { opacity: 0.9; }
+    .excellent { background: #16a34a; }
+    .good { background: #22c55e; }
+    .average { background: #eab308; color: #000; }
+    .struggling { background: #f97316; }
+    .weak { background: #ef4444; }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Student Evaluations</h1>
+    <div id="supervisorName"></div>
+  </header>
+
+  <main>
+    <button class="back-btn" onclick="window.location.href='industrial.html'">← Back to Dashboard</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Student Name</th>
+          <th>Position</th>
+          <th>Start Date</th>
+          <th>Performance</th>
+          <th>Attendance (%)</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="evaluationTableBody">
+        <tr><td colspan="6">Loading evaluations...</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal" id="evalModal">
+    <div class="modal-content">
+      <h3>Select Evaluation Type</h3>
+      <button class="performance-btn" onclick="showPerformanceOptions()">Performance</button>
+      <button class="attendance-btn" onclick="evaluateAttendance()">Attendance</button>
+
+      <!-- Performance Options -->
+      <div id="performanceOptions" class="performance-options" style="display:none;">
+        <h4>Choose Performance:</h4>
+        <button class="excellent" onclick="choosePerformance('Excellent', 100)">Excellent</button>
+        <button class="good" onclick="choosePerformance('Good', 80)">Good</button>
+        <button class="average" onclick="choosePerformance('Average', 60)">Average</button>
+        <button class="struggling" onclick="choosePerformance('Struggling', 40)">Struggling</button>
+        <button class="weak" onclick="choosePerformance('Weak', 20)">Weak</button>
+      </div>
+
+      <!-- Attendance Section -->
+      <div id="attendanceActions" style="display:none;">
+        <p><b>Attendance Count:</b> <span id="attendanceCount"></span></p>
+        <p><b>Attendance %:</b> <span id="attendancePercent"></span>%</p>
+        <button class="mark-btn" onclick="markAttendance()">Mark Attendance</button>
+      </div>
+
+      <button class="close-btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const supervisorData = JSON.parse(localStorage.getItem("currentSupervisor"));
+    document.getElementById("supervisorName").textContent = supervisorData?.name || "Supervisor";
+
+    let selectedStudentId = "";
+    let selectedEval = {};
+
+    function loadEvaluations() {
+      const tbody = document.getElementById("evaluationTableBody");
+      tbody.innerHTML = "";
+
+      db.ref("evaluation").once("value", snapshot => {
+        if (!snapshot.exists()) {
+          tbody.innerHTML = "<tr><td colspan='6'>No evaluations found.</td></tr>";
+          return;
+        }
+
+        snapshot.forEach(child => {
+          const e = child.val();
+          if (e.supervisor === supervisorData.name) {
+            const attendanceCount = e.attendanceCount ?? 40;
+            const attendancePercent = ((40 - attendanceCount) / 40 * 100).toFixed(0);
+
+            tbody.innerHTML += `
+              <tr>
+                <td>${e.studentName || "-"}</td>
+                <td>${e.position || "-"}</td>
+                <td>${e.startDate || "-"}</td>
+                <td><span class="status">${e.performance || "-"}</span></td>
+                <td>${attendancePercent}%</td>
+                <td><button class="eval-btn" onclick="openModal('${child.key}')">Evaluate</button></td>
+              </tr>
+            `;
+          }
+        });
+      });
+    }
+    loadEvaluations();
+
+    function openModal(studentId) {
+      selectedStudentId = studentId;
+      db.ref("evaluation/" + studentId).once("value", snap => {
+        selectedEval = snap.exists() ? snap.val() : {};
+        document.getElementById("attendanceActions").style.display = "none";
+        document.getElementById("performanceOptions").style.display = "none";
+        document.getElementById("evalModal").style.display = "flex";
+      });
+    }
+
+    function closeModal() {
+      document.getElementById("evalModal").style.display = "none";
+    }
+
+    // Show Performance Options
+    function showPerformanceOptions() {
+      document.getElementById("performanceOptions").style.display = "block";
+      document.getElementById("attendanceActions").style.display = "none";
+    }
+
+    // Choose performance (button version)
+    function choosePerformance(level, score) {
+      db.ref("evaluation/" + selectedStudentId).update({ performance: level, performanceScore: score })
+        .then(() => {
+          alert(`Performance set to ${level}`);
+          closeModal();
+          loadEvaluations();
+        });
+    }
+
+    // Attendance Evaluation
+    function evaluateAttendance() {
+      document.getElementById("attendanceActions").style.display = "block";
+      document.getElementById("performanceOptions").style.display = "none";
+      const count = selectedEval.attendanceCount ?? 40;
+      document.getElementById("attendanceCount").textContent = count;
+      document.getElementById("attendancePercent").textContent = ((40 - count) / 40 * 100).toFixed(0);
+    }
+
+    // ✅ Mark attendance once per day
+    function markAttendance() {
+      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const lastMarked = selectedEval.lastAttendanceDate || "";
+
+      if (lastMarked === today) {
+        alert("Attendance for today has already been marked.");
+        return;
+      }
+
+      let count = selectedEval.attendanceCount ?? 40;
+      if (count > 0) count--;
+      selectedEval.attendanceCount = count;
+      selectedEval.lastAttendanceDate = today;
+
+      db.ref("evaluation/" + selectedStudentId).update({
+        attendanceCount: count,
+        lastAttendanceDate: today
+      }).then(() => {
+        alert("Attendance marked for today!");
+        document.getElementById("attendanceCount").textContent = count;
+        document.getElementById("attendancePercent").textContent = ((40 - count) / 40 * 100).toFixed(0);
+        loadEvaluations();
+      });
+    }
+  </script>
+</body>
+</html>

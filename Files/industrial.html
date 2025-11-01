@@ -84,7 +84,7 @@
 </head>
 <body>
   <header>
-    <h1>Internship Tracking Dashboard</h1>
+    <h1>Field Supervisor Dashboard</h1>
     <div class="user-info">
       <div class="avatar" id="avatar">IS</div>
       <p id="supervisorName">Industrial Supervisor</p>
@@ -119,26 +119,16 @@
         </div>
         <h2 id="taskCount">0</h2>
       </div>
-       <div class="card">
-        <div class="card-header">
-          <div class="card-icon">📊</div>
-          <div>
-            <h3>Evaluations</h3>
-            <p>Completed reviews</p>
-          </div>
+      <div class="card" id="evaluationsCard">
+      <div class="card-header">
+        <div class="card-icon">📊</div>
+        <div>
+          <h3>Evaluations</h3>
+          <p>Completed reviews</p>
         </div>
-        <h2>10</h2>
       </div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-icon">⏰</div>
-          <div>
-            <h3>Avg Hours Worked</h3>
-            <p>Weekly average</p>
-          </div>
-        </div>
-        <h2>28h</h2>
-      </div>
+      <h2 id="evaluationCount">0</h2>
+    </div>
       <div class="card" id="logoutCard">
         <div class="card-header">
           <div class="card-icon">🚪</div>
@@ -166,11 +156,12 @@
             <th>Start Date</th>
             <th>Task Completion</th>
             <th>Performance</th>
+            <th>Attendance (%)</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody id="internTableBody">
-          <tr><td colspan="6">Loading...</td></tr>
+          <tr><td colspan="7">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -217,19 +208,29 @@
     document.getElementById("avatar").textContent = initials;
     document.getElementById("tabName").textContent = supervisorName;
 
-    // NEW LOGOUT CARD NAVIGATION
+    // Logout card navigation
     document.getElementById("logoutCard").addEventListener("click", () => {
       window.location.href = "logout.html";
     });
 
-    // Count interns
+    document.getElementById("evaluationsCard").addEventListener("click", () => {
+      localStorage.setItem("currentSupervisor", JSON.stringify({ name: supervisorName, id: supervisorId }));
+      window.location.href = "students-evaluations.html";
+    });
+
+    function countEvaluations() {
+      db.ref("evaluation").once("value", snapshot => {
+        document.getElementById("evaluationCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0;
+      });
+    }
+    countEvaluations();
+
     function countInterns() {
       db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
         .on("value", snapshot => document.getElementById("internCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0);
     }
     countInterns();
 
-    // Count all tasks
     function countTasks() {
       db.ref("tasks").on("value", snapshot => {
         document.getElementById("taskCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0;
@@ -244,7 +245,7 @@
       tbody.innerHTML = "";
       db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
         .once("value", snapshot => {
-          if (!snapshot.exists()) { tbody.innerHTML = "<tr><td colspan='6'>No interns assigned.</td></tr>"; return; }
+          if (!snapshot.exists()) { tbody.innerHTML = "<tr><td colspan='7'>No interns assigned.</td></tr>"; return; }
 
           snapshot.forEach(child => {
             const s = child.val();
@@ -257,7 +258,11 @@
               const startDate = evalData?.startDate || s.startDate || "-";
               const performance = evalData?.performance || "-";
 
-              // **Fetch task completion dynamically**
+              // Attendance calculation
+              const attendanceCount = evalData?.attendanceCount ?? 40; // 40 total days
+              const attendancePercent = (((40 - attendanceCount) / 40) * 100).toFixed(0);
+
+              // Task completion
               db.ref("tasks").orderByChild("studentName").equalTo(s.name).once("value", taskSnap => {
                 let totalTasks = 0;
                 let completedTasks = 0;
@@ -276,6 +281,7 @@
                     <td>${startDate}</td>
                     <td>${taskCompletion}</td>
                     <td><span class="status">${performance}</span></td>
+                    <td>${attendancePercent}%</td>
                     <td>
                       <button class="evaluate-btn" onclick="openModal('${studentId}')">Evaluate</button>
                     </td>
@@ -309,6 +315,7 @@
           position: data.position || "",
           startDate: data.startDate || "",
           performance: status,
+          attendanceCount: data.attendanceCount ?? 40,
           supervisor: supervisorName
         }).then(() => { loadInterns(); });
       });
