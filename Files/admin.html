@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard | Internship Tracking</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      background-color: #f6f8fb;
+      color: #333;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: #fff;
+      color: #1e3a8a;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    main {
+      padding: 30px 40px;
+      flex: 1;
+    }
+
+    .dashboard-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+      padding: 20px;
+      transition: 0.3s ease;
+      text-align: center;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 5px 14px rgba(0,0,0,0.08);
+    }
+
+    .card h2 {
+      font-size: 28px;
+      color: #1e3a8a;
+      margin-bottom: 8px;
+    }
+
+    .card p {
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .forms {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 30px;
+    }
+
+    .form-box {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+      padding: 25px;
+      transition: 0.3s ease;
+    }
+
+    .form-box:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 14px rgba(0,0,0,0.08);
+    }
+
+    .form-box h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #1e3a8a;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: #334155;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      font-size: 14px;
+      background-color: #f9fafb;
+      transition: all 0.2s ease;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #1e3a8a;
+      background-color: #fff;
+      box-shadow: 0 0 5px rgba(30,58,138,0.3);
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #1e3a8a;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background-color: #163169;
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #6b7280;
+      font-size: 14px;
+      border-top: 1px solid #e5e7eb;
+      background-color: #f9fafb;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Admin Dashboard</h1>
+  </header>
+
+  <main>
+    <div class="dashboard-cards">
+      <div class="card">
+        <h2 id="totalStudents">0</h2>
+        <p>Total Students</p>
+      </div>
+      <div class="card">
+        <h2 id="totalSupervisors">0</h2>
+        <p>University Supervisors</p>
+      </div>
+      <div class="card">
+        <h2 id="totalCompanies">0</h2>
+        <p>Partner Companies</p>
+      </div>
+      <div class="card">
+        <h2 id="activeInternships">0</h2>
+        <p>Assigned Internees</p>
+      </div>
+    </div>
+
+    <div class="forms">
+      <div class="form-box">
+        <h3>Add New User</h3>
+        <form id="userForm">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" placeholder="Enter full name" required>
+
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="Enter email" required>
+
+          <label for="role">Role</label>
+          <select id="role" required>
+            <option value="">-- Select Role --</option>
+            <option value="student">Student</option>
+            <option value="supervisor">University Supervisor</option>
+            <option value="company">Company Representative</option>
+          </select>
+
+          <div id="extraContainer"></div>
+          <button type="submit">Add User</button>
+        </form>
+      </div>
+
+      <div class="form-box">
+        <h3>Attach Supervisor to Internee</h3>
+        <form id="attachForm">
+          <label for="internee">Select Internee</label>
+          <select id="internee"></select>
+
+          <label for="supervisorSelect">Select Supervisor</label>
+          <select id="supervisorSelect"></select>
+
+          <button type="submit">Attach</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer>Intern World | Admin Dashboard</footer>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, set, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const roleSelect = document.getElementById("role");
+    const extraContainer = document.getElementById("extraContainer");
+    const form = document.getElementById("userForm");
+
+    const studentCount = document.getElementById("totalStudents");
+    const supervisorCount = document.getElementById("totalSupervisors");
+    const companyCount = document.getElementById("totalCompanies");
+    const activeInternships = document.getElementById("activeInternships");
+
+    const interneeSelect = document.getElementById("internee");
+    const supervisorSelect = document.getElementById("supervisorSelect");
+    const attachForm = document.getElementById("attachForm");
+
+    roleSelect.addEventListener("change", () => {
+      if (roleSelect.value === "student") {
+        extraContainer.innerHTML = `
+          <label for="regNumber">Registration Number</label>
+          <input type="text" id="regNumber" placeholder="Enter registration number" required>
+        `;
+      } else if (roleSelect.value === "company") {
+        extraContainer.innerHTML = `
+          <label for="companyName">Company Name</label>
+          <input type="text" id="companyName" placeholder="Enter company name" required>
+        `;
+      } else {
+        extraContainer.innerHTML = "";
+      }
+    });
+
+    // Save new user (with default password)
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value;
+      const email = document.getElementById("email").value;
+      const role = roleSelect.value;
+
+      if (!role) return alert("Please select a role.");
+
+      const password = "123"; // Default password
+      let data = { name, email, password };
+
+      if (role === "student") {
+        const regNumber = document.getElementById("regNumber").value;
+        data = { ...data, regNumber, supervisor: null, supervisorName: null, companySupervisor: null };
+        await set(push(ref(db, "students")), data);
+      } else if (role === "supervisor") {
+        await set(push(ref(db, "supervisors")), data);
+      } else if (role === "company") {
+        const companyName = document.getElementById("companyName").value;
+        data = { ...data, companyName };
+        await set(push(ref(db, "companies")), data);
+      }
+
+      alert("User added successfully with default password '123'!");
+      form.reset();
+      extraContainer.innerHTML = "";
+    });
+
+    // Load stats
+    function updateCounts() {
+      onValue(ref(db, "students"), (snapshot) => {
+        let total = 0, active = 0;
+        interneeSelect.innerHTML = "<option value=''>-- Select Internee --</option>";
+        snapshot.forEach((child) => {
+          total++;
+          const student = child.val();
+          if (student.supervisor) {
+            active++; // Only count students with a supervisor as active
+          } else {
+            // Only show students without a supervisor in dropdown
+            interneeSelect.innerHTML += `<option value="${child.key}">${student.name}</option>`;
+          }
+        });
+        studentCount.textContent = total;
+        activeInternships.textContent = active;
+      });
+
+      onValue(ref(db, "supervisors"), (snapshot) => {
+        supervisorCount.textContent = snapshot.size || snapshot.numChildren();
+        supervisorSelect.innerHTML = "<option value=''>-- Select Supervisor --</option>";
+        snapshot.forEach((child) => {
+          const supervisor = child.val();
+          supervisorSelect.innerHTML += `<option value="${child.key}">${supervisor.name}</option>`;
+        });
+      });
+
+      onValue(ref(db, "companies"), (snapshot) => {
+        companyCount.textContent = snapshot.size || snapshot.numChildren();
+      });
+    }
+    updateCounts();
+
+    // Attach supervisor to internee with name
+    attachForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const interneeId = interneeSelect.value;
+      const supervisorId = supervisorSelect.value;
+
+      if (!interneeId || !supervisorId) return alert("Select both internee and supervisor.");
+
+      // Get supervisor name
+      const supervisorSnap = await get(ref(db, "supervisors/" + supervisorId));
+      const supervisorName = supervisorSnap.exists() ? supervisorSnap.val().name : null;
+
+      if (!supervisorName) return alert("Supervisor not found.");
+
+      // Update student with supervisor ID and name
+      await update(ref(db, "students/" + interneeId), { supervisor: supervisorId, supervisorName: supervisorName });
+
+      alert("Supervisor attached successfully!");
+      updateCounts(); // Refresh the dropdown and active count
+    });
+
+  </script>
+</body>
+</html>

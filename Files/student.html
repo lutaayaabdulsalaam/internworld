@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Internship Tracking Dashboard</title>
+<style>
+body { font-family: "Poppins", sans-serif; background: #f6f8fb; margin:0; padding:20px; }
+h1 { font-size: 24px; font-weight: 600; margin-bottom: 20px; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.user-info { display:flex; align-items:center; gap:10px; }
+.user-avatar { background:#007bff; color:white; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; text-transform:uppercase; }
+.role-tabs { display:flex; gap:10px; margin-bottom:25px; }
+.role-tabs button { border:1px solid #ccc; background:white; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:500; transition:0.3s; }
+.role-tabs button:hover { background:#007bff; color:white; }
+.role-tabs .active { background:#007bff; color:white; border:none; }
+.cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:20px; margin-bottom:40px; }
+.card { background:white; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.05); padding:20px; cursor:pointer; transition: transform .12s ease, box-shadow .12s ease; }
+.card:hover { transform: translateY(-4px); box-shadow:0 6px 18px rgba(0,0,0,0.08); }
+.card-icon { font-size:35px; color:#007bff; margin-bottom:10px; }
+.card h3 { margin:0; font-size:16px; font-weight:600; color:#333; }
+.card p { color:#777; font-size:14px; margin:4px 0 10px; }
+.card strong { font-size:20px; color:#000; }
+.card.disabled { opacity: 0.6; cursor: not-allowed; }
+.report-section { display:flex; justify-content:flex-start; }
+.weekly-report { background:white; border-radius:12px; padding:25px; box-shadow:0 2px 6px rgba(0,0,0,0.05); width:400px; margin-right:auto; }
+.weekly-report h2 { font-size:18px; font-weight:600; margin-bottom:20px; }
+label { display:block; margin-bottom:8px; font-weight:500; color:#333; }
+select { width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:15px; margin-bottom:20px; }
+button.generate-btn { background:#007bff; color:white; border:none; border-radius:8px; padding:10px 20px; cursor:pointer; font-weight:500; font-size:15px; transition:0.3s; width:100%; }
+button.generate-btn:hover { background:#0056b3; }
+.card.link { cursor: pointer; }
+.card.link .card-icon { color: #10b981; }
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <h1>Internship Tracking Dashboard</h1>
+  <div class="user-info">
+    <div class="user-avatar" id="user-avatar">JD</div>
+    <span id="user-name">John Doe</span>
+  </div>
+</div>
+
+<div class="role-tabs">
+  <button class="active">Student dashboard</button>
+</div>
+
+<div class="cards">
+  <div class="card" id="logbookCard">
+    <div class="card-icon">📘</div>
+    <h3>Logbook</h3>
+    <p>Today's activities</p>
+    <strong id="logbookCount">0</strong>
+  </div>
+
+  <div class="card" id="tasksCard">
+    <div class="card-icon">📝</div>
+    <h3>Tasks Completed</h3>
+    <p>This month</p>
+    <strong id="tasksCompleted">0 / 0</strong>
+  </div>
+
+  <div class="card" id="reportsCard">
+    <div class="card-icon">📄</div>
+    <h3>Reports Submitted</h3>
+    <p>Weekly reports</p>
+    <strong id="reportsCount">0</strong>
+  </div>
+
+  <div class="card link" id="supervisorsCard" title="View supervisors details">
+    <div class="card-icon">👔</div>
+    <h3>Supervisors Info</h3>
+    <p>Assigned university and industry supervisors</p>
+    <strong id="supervisorsCount">2</strong>
+  </div>
+
+  <div class="card">
+    <div class="card-icon">⏰</div>
+    <h3>Hours Logged</h3>
+    <p>This month</p>
+    <strong>21</strong>
+  </div>
+
+   <div class="card" id="logoutCard">
+    <div class="card-icon">🚪</div>
+    <h3>Logout</h3>
+    <p>Sign out of your account</p>
+  </div>
+</div>
+
+<div class="report-section">
+  <div class="weekly-report">
+    <h2>Generate Weekly Report</h2>
+    <form>
+      <label for="week">Select Week:</label>
+      <select id="week" name="week">
+        <option value="">-- Choose a week --</option>
+      </select>
+      <button type="button" class="generate-btn">Generate Report</button>
+    </form>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+  authDomain: "internworld.firebaseapp.com",
+  databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+  projectId: "internworld",
+  storageBucket: "internworld.firebasestorage.app",
+  messagingSenderId: "963772778365",
+  appId: "1:963772778365:web:4203f314d1bd9879f72e14"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
+const userName = currentUser.name || "Student internee";
+const userId = currentUser.id || "no-id";
+document.getElementById("user-name").textContent = userName;
+document.getElementById("user-avatar").textContent = userName.split(" ").map(n=>n[0]).join("").toUpperCase();
+
+// --- Logbook count today ---
+function updateLogbookCount() {
+  const logRef = db.ref("logbook").orderByChild("studentName").equalTo(userName);
+  logRef.on("value", snapshot => {
+    let todayCount = 0;
+    const todayStr = new Date().toISOString().split('T')[0];
+    snapshot.forEach(child => {
+      const entryDate = new Date(child.val().timestamp).toISOString().split('T')[0];
+      if (entryDate === todayStr) todayCount++;
+    });
+    document.getElementById("logbookCount").textContent = todayCount;
+  });
+}
+updateLogbookCount();
+
+// --- Tasks Completed ---
+function updateTasksCompleted() {
+  const taskRef = db.ref("tasks").orderByChild("studentName").equalTo(userName);
+  taskRef.on("value", snapshot => {
+    let totalTasks = 0;
+    let completedTasks = 0;
+    snapshot.forEach(task => {
+      totalTasks++;
+      if (task.val().taskdone === true) completedTasks++;
+    });
+    document.getElementById("tasksCompleted").textContent = `${completedTasks} / ${totalTasks}`;
+  });
+}
+updateTasksCompleted();
+
+// --- Reports Submitted ---
+async function updateReportsCount() {
+  const reportsRef = db.ref(`weeklyReports/${userId}`);
+  const snapshot = await reportsRef.once("value");
+  const reports = snapshot.exists() ? Object.keys(snapshot.val()) : [];
+  document.getElementById("reportsCount").textContent = reports.length;
+  return reports;
+}
+
+// Card navigation
+document.getElementById("tasksCard").addEventListener("click", () => window.location.href = "student-tasks.html");
+document.getElementById("supervisorsCard").addEventListener("click", () => window.location.href = "supervisor_info.html");
+document.getElementById("logbookCard").addEventListener("click", () => {
+  localStorage.setItem("logbookUser", JSON.stringify({ name: userName, id: userId }));
+  window.location.href = "logbook.html";
+});
+document.getElementById("reportsCard").addEventListener("click", () => {
+  window.location.href = "view-reports.html"; 
+});
+
+// --- Weekly Report Feature ---
+const weekSelect = document.getElementById("week");
+const generateBtn = document.querySelector(".generate-btn");
+
+// fetch all logbook entries and determine weeks
+async function populateWeeks() {
+  const logSnap = await db.ref("logbook").orderByChild("studentName").equalTo(userName).once("value");
+  const logEntries = [];
+  logSnap.forEach(child => logEntries.push(child.val()));
+  if (logEntries.length === 0) return;
+
+  logEntries.sort((a,b)=>a.timestamp-b.timestamp);
+  const startDate = new Date(logEntries[0].timestamp);
+  const weeks = [];
+  let weekStart = new Date(startDate);
+  let weekCounter = 1;
+
+  const existingReports = await updateReportsCount();
+
+  while (weekStart <= new Date()) {
+    const weekName = `Week ${weekCounter}`;
+    const disabled = existingReports.includes(weekName);
+    weeks.push({ weekName, start: new Date(weekStart), end: new Date(weekStart.getTime() + 6*24*60*60*1000), disabled });
+    weekStart.setDate(weekStart.getDate() + 7);
+    weekCounter++;
+  }
+
+  weekSelect.innerHTML = '<option value="">-- Choose a week --</option>';
+  weeks.forEach((w, idx) => {
+    weekSelect.innerHTML += `<option value="${idx}" ${w.disabled ? "disabled style='color:gray;'" : ""}>${w.weekName}${w.disabled ? " (Generated)" : ""}</option>`;
+  });
+  return weeks;
+}
+  // LOGOUT CARD NAVIGATION
+document.getElementById("logoutCard").addEventListener("click", () => {
+  window.location.href = "index.html";
+});
+
+// Generate report
+generateBtn.addEventListener("click", async () => {
+  const selectedWeekIndex = weekSelect.value;
+  if (selectedWeekIndex === "") return alert("Please select a week!");
+  const weeks = await populateWeeks();
+  const selectedWeek = weeks[selectedWeekIndex];
+
+  if (selectedWeek.disabled) return alert("Report for this week already exists!");
+
+  const logSnap = await db.ref("logbook").orderByChild("studentName").equalTo(userName).once("value");
+  const weekEntries = [];
+  logSnap.forEach(child => {
+    const entry = child.val();
+    const entryDate = new Date(entry.timestamp);
+    if (entryDate >= selectedWeek.start && entryDate <= selectedWeek.end) weekEntries.push(entry);
+  });
+  if (weekEntries.length === 0) return alert("No logbook entries for this week!");
+
+  const taskSnap = await db.ref("tasks").orderByChild("studentName").equalTo(userName).once("value");
+  const weekTasks = [];
+  taskSnap.forEach(child => {
+    const task = child.val();
+    if (!task.dateAssigned) return;
+    const tDate = new Date(task.dateAssigned);
+    if (tDate >= selectedWeek.start && tDate <= selectedWeek.end) weekTasks.push(task);
+  });
+
+  const reportData = weekEntries.map(e=>({
+    date: new Date(e.timestamp).toDateString(),
+    activity: e.activity,
+    challenges: e.challenges || "None",
+    equipment: e.equipment || "None",
+    tasks: weekTasks.filter(t=>new Date(t.dateAssigned).toDateString() === new Date(e.timestamp).toDateString()).map(t=>`${t.description} (${t.taskdone?"Done":"Pending"})`).join(", ") || "None"
+  }));
+
+
+  await db.ref(`weeklyReports/${userId}/${selectedWeek.weekName}`).set({ reportData, weekName: selectedWeek.weekName, createdAt: Date.now() });
+  alert(`✅ ${selectedWeek.weekName} report generated and saved!`);
+  await populateWeeks();
+  updateReportsCount();
+});
+
+// initialize weeks on load
+populateWeeks();
+</script>
+</body>
+</html>

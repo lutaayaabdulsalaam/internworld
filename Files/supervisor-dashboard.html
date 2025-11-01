@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Internship Tracking Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background: #f6f8fb; color: #333; padding: 20px; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .profile { display: flex; align-items: center; gap: 10px; }
+    .profile .avatar { width: 40px; height: 40px; border-radius: 50%; background: #007bff; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; text-transform: uppercase; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 25px; }
+    .tabs button { border: 1px solid #ccc; background: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+    .tabs button:hover { background: #eaf1ff; }
+    .tabs .active { background: #1a73e8; color: white; border: none; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; }
+    .card-icon { font-size: 30px; margin-bottom: 10px; color: #28a745; }
+    .card h3 { font-size: 16px; font-weight: 600; margin-bottom: 5px; }
+    .card p { color: #777; font-size: 14px; margin-bottom: 15px; }
+    .card .number { font-size: 24px; font-weight: 700; color: #333; }
+    .progress-section { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .progress-header h2 { font-size: 18px; font-weight: 600; }
+    .progress-header button { background: #1a73e8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eee; }
+    th { background: #f9fafb; font-weight: 600; }
+    .status { padding: 5px 10px; border-radius: 20px; font-size: 13px; font-weight: 500; display: inline-block; }
+    .on-track { background: #d4edda; color: #155724; }
+    .needs-review { background: #fff3cd; color: #856404; }
+    .good-progress { background: #d1ecf1; color: #0c5460; }
+    @media (max-width: 600px) { .progress-header { flex-direction: column; align-items: flex-start; gap: 10px; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Internship Tracking Dashboard</h1>
+    <div class="profile">
+      <div class="avatar" id="avatar">JD</div>
+      <span id="userName">John Doe</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="active">University Supervisor dashboard</button>
+  </div>
+
+  <div class="cards">
+    <div class="card" id="assignedCard">
+      <div class="card-icon">🎓</div>
+      <h3>Assigned Students</h3>
+      <p>Students under supervision</p>
+      <div class="number" id="assignedCount">0</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">✅</div>
+      <h3>Approvals Pending</h3>
+      <p>Require your attention</p>
+      <div class="number">7</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📄</div>
+      <h3>Reports to Review</h3>
+      <p>Weekly reports</p>
+      <div class="number">12</div>
+    </div>
+    <div class="card" id="partnerCard">
+      <div class="card-icon">🏢</div>
+      <h3>Partner Companies</h3>
+      <p>Active partnerships</p>
+      <div class="number" id="partnerCount">0</div>
+    </div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-header">
+      <h2>Student Progress</h2>
+      <button>Generate Report</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Student Name</th>
+          <th>Company</th>
+          <th>Position</th>
+          <th>Hours Completed</th>
+          <th>Last Report</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="studentTable">
+        <!-- Dynamically populate students if needed -->
+      </tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+    // Navigate to assigned students page
+    document.getElementById("assignedCard").addEventListener("click", () => {
+      window.location.href = "assigned-students.html";
+    });
+
+    // Navigate to partner companies page
+    document.getElementById("partnerCard").addEventListener("click", () => {
+      window.location.href = "partner-companies.html";
+    });
+
+    if (currentUser && currentUser.role === "supervisor") {
+      // Display current user info
+      document.getElementById("userName").textContent = currentUser.name;
+      document.getElementById("avatar").textContent = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+
+      const assignedCountElem = document.getElementById("assignedCount");
+      const partnerCountElem = document.getElementById("partnerCount");
+
+      // Fetch assigned students
+      get(ref(db, "students")).then(snapshot => {
+        if (snapshot.exists()) {
+          let assignedCount = 0;
+          const industrialSupervisorIds = new Set();
+          snapshot.forEach(child => {
+            const student = child.val();
+            if (student.supervisorName === currentUser.name || student.supervisor === currentUser.id) {
+              assignedCount++;
+              industrialSupervisorIds.add(student.industrialSupervisorId);
+            }
+          });
+          assignedCountElem.textContent = assignedCount;
+
+          // Fetch companies related to industrial supervisors
+          get(ref(db, "companies")).then(compSnapshot => {
+            if (compSnapshot.exists()) {
+              let partnerCount = 0;
+              compSnapshot.forEach(compChild => {
+                const company = compChild.val();
+                if (industrialSupervisorIds.has(compChild.key)) {
+                  partnerCount++;
+                }
+              });
+              partnerCountElem.textContent = partnerCount;
+            }
+          }).catch(err => console.error("Error fetching companies:", err));
+        }
+      }).catch(err => console.error("Error fetching students:", err));
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assigned Students</title>
+  <style>
+    body { font-family: "Poppins", sans-serif; background: #f6f8fb; padding: 20px; color: #333; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background: #f9fafb; }
+    tr:hover { background: #f1f1f1; }
+  </style>
+</head>
+<body>
+  <h1>Assigned Students</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Registration Number</th>
+        <th>Position</th>
+        <th>Industrial Supervisor</th>
+        <th>Performance</th>
+        <th>Start Date</th>
+      </tr>
+    </thead>
+    <tbody id="studentsTable">
+      <!-- Populated dynamically -->
+    </tbody>
+  </table>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+    const studentsTable = document.getElementById("studentsTable");
+
+    if (currentUser && currentUser.role === "supervisor") {
+      get(ref(db, "students")).then(snapshot => {
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const student = child.val();
+            if (student.supervisorName === currentUser.name || student.supervisor === currentUser.id) {
+              const tr = document.createElement("tr");
+              tr.innerHTML = `
+                <td>${student.name}</td>
+                <td>${student.email}</td>
+                <td>${student.regNumber}</td>
+                <td>${student.position}</td>
+                <td>${student.industrialSupervisor}</td>
+                <td>${student.performance}</td>
+                <td>${student.startDate}</td>
+              `;
+              studentsTable.appendChild(tr);
+            }
+          });
+        }
+      }).catch(err => console.error("Error fetching students:", err));
+    }
+  </script>
+</body>
+</html>

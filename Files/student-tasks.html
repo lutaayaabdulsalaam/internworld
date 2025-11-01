@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Tasks</title>
+  <style>
+    body { font-family:"Poppins",sans-serif; background:#f6f8fb; margin:0; padding:20px; }
+    h1 { font-size:24px; font-weight:600; margin-bottom:20px; }
+    table { width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+    th, td { padding:12px; text-align:left; border-bottom:1px solid #e5e7eb; }
+    th { background:#f1f5f9; font-weight:600; }
+    .status { padding:5px 10px; border-radius:12px; font-weight:500; color:white; }
+    .done { background:#22c55e; }
+    .pending { background:#f97316; }
+    .finish-btn { padding:6px 12px; border:none; border-radius:6px; font-weight:500; cursor:pointer; color:white; background:#007bff; }
+    .finish-btn.done { background:#facc15; color:#000; }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <h1>My Tasks</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Duration</th>
+        <th>Date Assigned</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="tasksBody">
+      <tr><td colspan="5">Loading tasks...</td></tr>
+    </tbody>
+  </table>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+    authDomain: "internworld.firebaseapp.com",
+    databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+    projectId: "internworld",
+    storageBucket: "internworld.firebasestorage.app",
+    messagingSenderId: "963772778365",
+    appId: "1:963772778365:web:4203f314d1bd9879f72e14"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
+  const userName = currentUser.name || "";
+
+  const tbody = document.getElementById("tasksBody");
+  tbody.innerHTML = "<tr><td colspan='5'>Loading tasks...</td></tr>";
+
+  function loadTasks() {
+    db.ref("tasks").orderByChild("studentName").equalTo(userName)
+      .on("value", snapshot => {
+        tbody.innerHTML = "";
+        if (!snapshot.exists()) {
+          tbody.innerHTML = "<tr><td colspan='5'>No tasks assigned yet.</td></tr>";
+          return;
+        }
+        snapshot.forEach(child => {
+          const task = child.val();
+          const key = child.key;
+          const statusClass = task.taskdone ? "done" : "pending";
+          const statusText = task.taskdone ? "Done" : task.status || "Not Assigned";
+
+          tbody.innerHTML += `
+            <tr id="task-${key}">
+              <td>${task.description}</td>
+              <td>${task.duration}</td>
+              <td>${task.dateAssigned}</td>
+              <td><span class="status ${statusClass}">${statusText}</span></td>
+              <td>
+                <button class="finish-btn ${task.taskdone ? "done" : ""}" ${task.taskdone ? "disabled" : ""} data-key="${key}">
+                  ${task.taskdone ? "Done" : "Finish"}
+                </button>
+              </td>
+            </tr>
+          `;
+        });
+
+        // Attach click listeners to all finish buttons
+        document.querySelectorAll(".finish-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const taskKey = btn.getAttribute("data-key");
+            db.ref("tasks/" + taskKey).update({ taskdone: true }).then(() => {
+              btn.classList.add("done");
+              btn.textContent = "Done";
+              btn.disabled = true;
+
+              // Update status cell
+              const statusCell = document.querySelector(`#task-${taskKey} .status`);
+              if (statusCell) {
+                statusCell.classList.remove("pending");
+                statusCell.classList.add("done");
+                statusCell.textContent = "Done";
+              }
+            });
+          });
+        });
+      });
+  }
+
+  loadTasks();
+</script>
+</body>
+</html>

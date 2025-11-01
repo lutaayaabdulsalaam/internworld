@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Students under Supervisor</title>
+  <style>
+    body { font-family: "Poppins", sans-serif; background:#f6f8fb; padding:20px; }
+    h1 { color:#1e293b; margin-bottom:20px; }
+    table { width:100%; border-collapse: collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 3px 10px rgba(0,0,0,0.05); }
+    th, td { padding:12px; text-align:left; border-bottom:1px solid #e5e7eb; }
+    th { background:#f1f5f9; font-weight:600; color:#1e293b; }
+    tr:hover { background:#e0f2fe; }
+    button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; color:#fff; background:#2563eb; transition:0.3s; }
+    button:hover { background:#1d4ed8; }
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+    .modal-content { background:#fff; padding:20px; border-radius:8px; width:300px; }
+    .modal-content input { width:100%; padding:8px; margin-bottom:10px; border:1px solid #cbd5e1; border-radius:6px; }
+    .modal-content button { width:48%; margin-right:4%; }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <h1 id="pageTitle">Students under Supervisor</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Student Name</th>
+        <th>Position</th>
+        <th>Start Date</th>
+        <th>Task Completion</th>
+        <th>Performance</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="studentsTableBody">
+      <tr><td colspan="6">Loading...</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Edit Modal -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <h3>Edit Student Evaluation</h3>
+      <input type="text" id="editPosition" placeholder="Position" />
+      <input type="date" id="editStartDate" placeholder="Start Date" />
+      <input type="text" id="editPerformance" placeholder="Performance" />
+      <div style="display:flex; justify-content:flex-end;">
+        <button onclick="saveEvaluation()">Save</button>
+        <button onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const supervisorData = JSON.parse(localStorage.getItem("currentSupervisor"));
+    const supervisorName = supervisorData?.name || "Unknown Supervisor";
+    document.getElementById("pageTitle").textContent = `Students under ${supervisorName}`;
+
+    const tbody = document.getElementById("studentsTableBody");
+    let currentEditingStudentId = null;
+
+    function loadStudents() {
+      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName).once("value", snapshot => {
+        tbody.innerHTML = "";
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            const s = child.val();
+            const studentId = child.key;
+
+            // Check if evaluation exists
+            db.ref("evaluation/" + studentId).once("value", evalSnap => {
+              const evalData = evalSnap.exists() ? evalSnap.val() : null;
+
+              const position = s.position || (evalData ? evalData.position : "-");
+              const startDate = s.startDate || (evalData ? evalData.startDate : "-");
+              const performance = s.performance || (evalData ? evalData.performance : "-");
+
+              // Task Completion logic
+              db.ref("tasks").orderByChild("studentName").equalTo(s.name).once("value", taskSnap => {
+                let totalTasks = 0;
+                let completedTasks = 0;
+                if (taskSnap.exists()) {
+                  totalTasks = taskSnap.numChildren();
+                  taskSnap.forEach(t => {
+                    if (t.val().taskdone === true) completedTasks++;
+                  });
+                }
+                const taskCompletion = `${completedTasks} / ${totalTasks}`;
+
+                const actionBtn = evalData
+                  ? `<button style="background:red;" onclick="deleteEvaluation('${studentId}')">Delete</button>`
+                  : `<button onclick="openModal('${studentId}', '${s.position || ""}', '${s.startDate || ""}', '${s.performance || ""}')">Edit</button>`;
+
+                tbody.innerHTML += `
+                  <tr>
+                    <td>${s.name || "-"}</td>
+                    <td>${position}</td>
+                    <td>${startDate}</td>
+                    <td>${taskCompletion}</td>
+                    <td>${performance}</td>
+                    <td>${actionBtn}</td>
+                  </tr>
+                `;
+              });
+
+            });
+          });
+        } else {
+          tbody.innerHTML = `<tr><td colspan="6">No students assigned.</td></tr>`;
+        }
+      });
+    }
+
+    loadStudents();
+
+    // Modal functions
+    const modal = document.getElementById("editModal");
+    function openModal(studentId, position, startDate, performance) {
+      currentEditingStudentId = studentId;
+      document.getElementById("editPosition").value = position;
+      document.getElementById("editStartDate").value = startDate;
+      document.getElementById("editPerformance").value = performance;
+      modal.style.display = "flex";
+    }
+    function closeModal() { modal.style.display = "none"; }
+
+    function saveEvaluation() {
+      const position = document.getElementById("editPosition").value;
+      const startDate = document.getElementById("editStartDate").value;
+      const performance = document.getElementById("editPerformance").value;
+
+      if (!currentEditingStudentId) return;
+
+      // Update students table
+      db.ref("students/" + currentEditingStudentId).update({
+        position, startDate, performance
+      });
+
+      // Save in evaluation table
+      db.ref("evaluation/" + currentEditingStudentId).set({
+        studentId: currentEditingStudentId,
+        position,
+        startDate,
+        performance,
+        supervisor: supervisorName
+      });
+
+      // Fetch student name
+      db.ref("students/" + currentEditingStudentId + "/name").once("value", snap => {
+        const name = snap.val() || "Unknown";
+        db.ref("evaluation/" + currentEditingStudentId + "/studentName").set(name);
+      });
+
+      closeModal();
+      loadStudents();
+    }
+
+    function deleteEvaluation(studentId) {
+      if (!confirm("Are you sure you want to delete evaluation?")) return;
+      db.ref("evaluation/" + studentId).remove().then(() => loadStudents());
+    }
+
+    window.onclick = function(event) {
+      if (event.target == modal) closeModal();
+    }
+  </script>
+</body>
+</html>

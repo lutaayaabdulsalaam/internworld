@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Partner Companies</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background: #f6f8fb; color: #333; padding: 20px; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .profile { display: flex; align-items: center; gap: 10px; }
+    .profile .avatar { width: 40px; height: 40px; border-radius: 50%; background: #007bff; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; text-transform: uppercase; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #eee; }
+    th { background: #f9fafb; font-weight: 600; }
+    tr:hover { background: #f1f7ff; }
+    @media (max-width: 600px) { table, th, td { font-size: 12px; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Partner Companies</h1>
+    <div class="profile">
+      <div class="avatar" id="avatar">JD</div>
+      <span id="userName">John Doe</span>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Company Name</th>
+        <th>Industrial Supervisor</th>
+        <th>Email</th>
+        <th>Student(s)</th>
+      </tr>
+    </thead>
+    <tbody id="companyTable">
+      <!-- Partner companies will be dynamically inserted here -->
+    </tbody>
+  </table>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+    if (!currentUser) {
+      alert("No user logged in!");
+    } else {
+      // Display supervisor info
+      document.getElementById("userName").textContent = currentUser.name;
+      document.getElementById("avatar").textContent = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+
+      // Fetch assigned students
+      get(ref(db, "students")).then(studentSnapshot => {
+        if (!studentSnapshot.exists()) {
+          document.getElementById("companyTable").innerHTML = `<tr><td colspan="4">No assigned students found.</td></tr>`;
+          return;
+        }
+
+        const students = [];
+        studentSnapshot.forEach(child => {
+          const student = child.val();
+          if (student.supervisorName === currentUser.name || student.supervisor === currentUser.id) {
+            students.push({ ...student, id: child.key });
+          }
+        });
+
+        if (students.length === 0) {
+          document.getElementById("companyTable").innerHTML = `<tr><td colspan="4">No assigned students found.</td></tr>`;
+          return;
+        }
+
+        // Map industrialSupervisorId to students
+        const companyStudentsMap = {};
+        students.forEach(student => {
+          if (!companyStudentsMap[student.industrialSupervisorId]) {
+            companyStudentsMap[student.industrialSupervisorId] = [];
+          }
+          companyStudentsMap[student.industrialSupervisorId].push(student.name);
+        });
+
+        // Fetch companies
+        get(ref(db, "companies")).then(companySnapshot => {
+          if (!companySnapshot.exists()) {
+            document.getElementById("companyTable").innerHTML = `<tr><td colspan="4">No partner companies found.</td></tr>`;
+            return;
+          }
+
+          const tableBody = document.getElementById("companyTable");
+          tableBody.innerHTML = "";
+
+          companySnapshot.forEach(companyChild => {
+            const company = companyChild.val();
+            const companyId = companyChild.key;
+            if (companyStudentsMap[companyId]) {
+              const tr = document.createElement("tr");
+              tr.innerHTML = `
+                <td>${company.companyName || company.name || "N/A"}</td>
+                <td>${company.name || "N/A"}</td>
+                <td>${company.email || "N/A"}</td>
+                <td>${companyStudentsMap[companyId].join(", ")}</td>
+              `;
+              tableBody.appendChild(tr);
+            }
+          });
+        }).catch(err => console.error("Error fetching companies:", err));
+      }).catch(err => console.error("Error fetching students:", err));
+    }
+  </script>
+</body>
+</html>

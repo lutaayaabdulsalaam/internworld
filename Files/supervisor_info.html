@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Assigned Supervisors</title>
+  <style>
+    body { font-family: "Poppins", sans-serif; background:#f6f8fb; margin:0; padding:24px; color:#0f172a; }
+    header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    h1 { font-size:20px; margin:0; font-weight:600; }
+    .back { background:#fff; border-radius:8px; padding:8px 12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); cursor:pointer; }
+    .container { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px; }
+    .card { background:#fff; border-radius:12px; padding:18px; box-shadow:0 4px 18px rgba(2,6,23,0.06); }
+    .card h2 { margin:0 0 8px 0; font-size:16px; color:#0b1220; }
+    .meta { color:#475569; font-size:14px; margin-bottom:10px; }
+    .field { display:flex; gap:10px; margin:8px 0; align-items:center; }
+    .field label { min-width:110px; color:#64748b; font-weight:600; font-size:13px; }
+    .empty { color:#94a3b8; font-style:italic; }
+    .loading { text-align:center; color:#64748b; padding:18px; }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Assigned Supervisors</h1>
+    <div>
+      <button class="back" onclick="goBack()">← Back</button>
+    </div>
+  </header>
+
+  <div id="status" class="loading">Loading supervisor information...</div>
+
+  <div class="container" id="cardsContainer" style="display:none;">
+    <div class="card" id="uniCard">
+      <h2>University Supervisor</h2>
+      <div class="field"><label>Name</label><div id="uniName" class="value empty">—</div></div>
+      <div class="field"><label>Email</label><div id="uniEmail" class="value empty">—</div></div>
+    </div>
+
+    <div class="card" id="indCard">
+      <h2>Industrial Supervisor</h2>
+      <div class="field"><label>Name</label><div id="indName" class="value empty">—</div></div>
+      <div class="field"><label>Email</label><div id="indEmail" class="value empty">—</div></div>
+      <div class="field"><label>Company</label><div id="indCompany" class="value empty">—</div></div>
+    </div>
+  </div>
+
+<script>
+  // Firebase config - same as your app
+  const firebaseConfig = {
+    apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+    authDomain: "internworld.firebaseapp.com",
+    databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+    projectId: "internworld",
+    storageBucket: "internworld.firebasestorage.app",
+    messagingSenderId: "963772778365",
+    appId: "1:963772778365:web:4203f314d1bd9879f72e14"
+  };
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  const db = firebase.database();
+
+  function goBack(){ window.history.back(); }
+
+  // Read current user from localStorage (same as your other pages)
+  const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
+  const userEmail = currentUser.email || "";
+  const userName = currentUser.name || "";
+
+  // Utility to set UI values
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text || "—";
+    el.classList.toggle('empty', !text);
+  }
+
+  // Step 1: find the student record using email (preferred) or name
+  function findStudentRecord() {
+    const statusEl = document.getElementById('status');
+    statusEl.textContent = "Looking up your student record...";
+    let query;
+    if (userEmail) {
+      query = db.ref('students').orderByChild('email').equalTo(userEmail);
+    } else if (userName) {
+      query = db.ref('students').orderByChild('name').equalTo(userName);
+    } else {
+      statusEl.textContent = "No user information found in localStorage.";
+      return Promise.reject("no-local-user");
+    }
+
+    return query.once('value').then(snap => {
+      if (!snap.exists()) {
+        statusEl.textContent = "Could not find a matching student record.";
+        return Promise.reject("student-not-found");
+      }
+      // take the first matching student
+      let studentRecord = null;
+      snap.forEach(child => { if (!studentRecord) studentRecord = child.val(); });
+      statusEl.textContent = "Student record found.";
+      return studentRecord;
+    });
+  }
+
+  // Step 2: fetch university supervisor by id (student.supervisor)
+  function fetchUniversitySupervisor(supervisorId) {
+    if (!supervisorId) return Promise.resolve(null);
+    return db.ref('supervisors').child(supervisorId).once('value').then(s => s.exists() ? s.val() : null);
+  }
+
+  // Step 3: fetch industrial supervisor & company info from companies (industrialSupervisorId)
+  function fetchIndustrialSupervisor(companyId) {
+    if (!companyId) return Promise.resolve(null);
+    return db.ref('companies').child(companyId).once('value').then(s => s.exists() ? s.val() : null);
+  }
+
+  // Main flow
+  findStudentRecord()
+    .then(student => {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = "Fetching supervisors...";
+      const uniId = student.supervisor || student.supervisorId || null; // handle variants
+      // industrial supervisor may be stored as industrialSupervisorId or industrialSupervisor
+      const indId = student.industrialSupervisorId || null;
+
+      return Promise.all([
+        fetchUniversitySupervisor(uniId),
+        fetchIndustrialSupervisor(indId)
+      ]).then(([uniSup, indRec]) => ({ student, uniSup, indRec }));
+    })
+    .then(({ student, uniSup, indRec }) => {
+      // update UI
+      const statusEl = document.getElementById('status');
+      statusEl.style.display = 'none';
+      document.getElementById('cardsContainer').style.display = 'grid';
+
+      if (uniSup) {
+        setText('uniName', uniSup.name || uniSup.supervisorName || "—");
+        setText('uniEmail', uniSup.email || "—");
+      } else {
+        setText('uniName', '');
+        setText('uniEmail', '');
+      }
+
+      if (indRec) {
+        // companies entries you gave include fields: name (person), email, companyName
+        setText('indName', indRec.name || indRec.contactName || "");
+        setText('indEmail', indRec.email || "");
+        setText('indCompany', indRec.companyName || indRec.nameOfCompany || "");
+      } else {
+        setText('indName', '');
+        setText('indEmail', '');
+        setText('indCompany', '');
+      }
+    })
+    .catch(err => {
+      // show friendly error
+      const statusEl = document.getElementById('status');
+      if (err === "no-local-user") {
+        statusEl.textContent = "No logged-in student found in localStorage. Please log in first.";
+      } else if (err === "student-not-found") {
+        statusEl.textContent = "Student record not found. Make sure your localStorage 'currentUser' matches a students record.";
+      } else {
+        statusEl.textContent = "An error occurred while loading supervisor info.";
+        console.error("supervisors page error:", err);
+      }
+    });
+</script>
+</body>
+</html>

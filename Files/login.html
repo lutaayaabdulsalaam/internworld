@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intern World | Login</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", sans-serif; }
+    body { background-color: #f6f8fb; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    .login-container { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; }
+    .login-container h2 { color: #1e3a8a; margin-bottom: 25px; text-align: center; }
+    label { display: block; margin-bottom: 6px; color: #334155; font-size: 14px; font-weight: 500; }
+    input { width: 100%; padding: 10px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #cbd5e1; background-color: #f9fafb; font-size: 14px; }
+    input:focus { outline: none; border-color: #1e3a8a; background-color: #fff; box-shadow: 0 0 5px rgba(30,58,138,0.3); }
+    button { width: 100%; padding: 12px; background-color: #1e3a8a; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    button:hover { background-color: #163169; }
+    .error { color: red; font-size: 14px; margin-bottom: 10px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Login</h2>
+    <div class="error" id="errorMsg"></div>
+    <form id="loginForm">
+      <label for="emailOrReg">Email or Registration Number</label>
+      <input type="text" id="emailOrReg" placeholder="Enter email or registration number" required>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter password" required>
+
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const loginForm = document.getElementById("loginForm");
+    const emailOrRegInput = document.getElementById("emailOrReg");
+    const passwordInput = document.getElementById("password");
+    const errorMsg = document.getElementById("errorMsg");
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorMsg.textContent = "";
+
+      const identifier = emailOrRegInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!identifier || !password) {
+        errorMsg.textContent = "Please fill all fields.";
+        return;
+      }
+
+      try {
+        const studentsSnap = await get(ref(db, "students"));
+        const supervisorsSnap = await get(ref(db, "supervisors"));
+        const companiesSnap = await get(ref(db, "companies"));
+
+        let user = null;
+        let role = "";
+
+        // Check students (email or regNumber)
+        studentsSnap.forEach(child => {
+          const data = child.val();
+          if ((data.email === identifier || data.regNumber === identifier) && data.password === password) {
+            user = { id: child.key, ...data };
+            role = "student";
+          }
+        });
+
+        // Check supervisors (email only)
+        if (!user) {
+          supervisorsSnap.forEach(child => {
+            const data = child.val();
+            if (data.email === identifier && data.password === password) {
+              user = { id: child.key, ...data };
+              role = "supervisor";
+            }
+          });
+        }
+
+        // Check companies (email only)
+        if (!user) {
+          companiesSnap.forEach(child => {
+            const data = child.val();
+            if (data.email === identifier && data.password === password) {
+              user = { id: child.key, ...data };
+              role = "company";
+            }
+          });
+        }
+
+        if (!user) {
+          errorMsg.textContent = "Invalid email/registration number or password.";
+          return;
+        }
+
+        // Save user info in localStorage
+        localStorage.setItem("currentUser", JSON.stringify({ id: user.id, role, name: user.name }));
+
+        // Redirect based on role
+        if (role === "student") {
+          window.location.href = "student.html";
+        } else if (role === "supervisor") {
+          if (user.admin === true) {
+            window.location.href = "admin.html";
+          } else {
+            window.location.href = "supervisor-dashboard.html";
+          }
+        } else if (role === "company") {
+          window.location.href = "industrial.html";
+        }
+
+      } catch (err) {
+        console.error(err);
+        errorMsg.textContent = "Login failed. Please try again.";
+      }
+    });
+  </script>
+</body>
+</html>

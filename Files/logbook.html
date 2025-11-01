@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Logbook</title>
+<style>
+body { font-family: "Poppins", sans-serif; background:#f6f8fb; margin:0; padding:20px; }
+h1 { font-size:24px; margin-bottom:10px; color:#007bff; }
+.student-info { margin-bottom:20px; }
+.card { background:white; padding:20px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.05); margin-bottom:20px; }
+label { display:block; font-weight:500; margin-top:10px; }
+input, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:14px; margin-top:5px; }
+button { background:#007bff; color:white; border:none; padding:10px 20px; border-radius:8px; margin-top:15px; cursor:pointer; font-weight:500; }
+button:hover { background:#0056b3; }
+
+.entries-container { margin-top:20px; }
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; vertical-align: top; }
+th { background: #007bff; color: white; font-weight: 600; }
+tr:nth-child(even) { background: #f9f9f9; }
+tr:hover { background: #eef5ff; }
+
+.view-btn { background:#10b981; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight:500; margin-bottom:15px; }
+.view-btn:hover { background:#0d8a66; }
+
+.edit-btn { background:#f59e0b; color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500; }
+.edit-btn:hover { background:#d97706; }
+
+.inline-form { margin-top:10px; background:#f1f5f9; padding:10px; border-radius:8px; }
+.save-missed-btn { background:#10b981; color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500; margin-top:10px; }
+.save-missed-btn:hover { background:#0d8a66; }
+</style>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<!-- jsPDF + AutoTable -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<h1>KIU Internship Logbook</h1>
+<div class="student-info">
+  <p><strong>Name:</strong> <span id="studentName"></span></p>
+</div>
+
+<div class="card">
+  <h3>Add Daily Activity</h3>
+  <label>Activity Description</label>
+  <textarea id="activity" placeholder="Describe what you did today"></textarea>
+
+  <label>Challenges Faced</label>
+  <textarea id="challenges" placeholder="Mention any challenges faced"></textarea>
+
+  <label>Equipment Used</label>
+  <input type="text" id="equipment" placeholder="e.g., Computer, Microscope, etc.">
+
+  <button id="addActivityBtn">Add Daily Activity</button>
+</div>
+
+<div class="entries-container">
+  <h3>📅 Your Weekly Logbook (Monday–Friday)</h3>
+  <button class="view-btn" id="viewLogbookBtn">📘 View Logbook (PDF)</button>
+  <div id="entriesList"></div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+  authDomain: "internworld.firebaseapp.com",
+  databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+  projectId: "internworld",
+  storageBucket: "internworld.firebasestorage.app",
+  messagingSenderId: "963772778365",
+  appId: "1:963772778365:web:4203f314d1bd9879f72e14"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const logbookUser = JSON.parse(localStorage.getItem("logbookUser")) || {};
+const studentName = logbookUser.name || "Unknown Student";
+const studentId = logbookUser.id || "";
+document.getElementById("studentName").textContent = studentName;
+
+function getWeekdays() {
+  const today = new Date();
+  const day = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((day + 6) % 7));
+  const weekdays = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    weekdays.push({
+      date: d.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      raw: d
+    });
+  }
+  return weekdays;
+}
+
+document.getElementById("addActivityBtn").addEventListener("click", () => addOrEditEntry());
+
+async function addOrEditEntry(editDate = null, formData = null) {
+  let activity, challenges, equipment;
+  if (formData) {
+    ({ activity, challenges, equipment } = formData);
+  } else {
+    activity = document.getElementById("activity").value.trim();
+    challenges = document.getElementById("challenges").value.trim();
+    equipment = document.getElementById("equipment").value.trim();
+  }
+
+  if (!activity) { alert("Please describe your activity before submitting."); return; }
+
+  const today = editDate ? new Date(editDate) : new Date();
+  const dateWithDay = today.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const entry = {
+    studentName, studentId, activity, challenges, equipment, date: dateWithDay, timestamp: today.getTime()
+  };
+
+  const snapshot = await db.ref("logbook").orderByChild("studentName").equalTo(studentName).once("value");
+  let foundKey = null;
+  snapshot.forEach(child => { if (child.val().date === dateWithDay) foundKey = child.key; });
+
+  if (foundKey) await db.ref("logbook/" + foundKey).set(entry);
+  else await db.ref("logbook").push(entry);
+
+  alert("✅ Activity saved successfully!");
+  location.reload();
+}
+
+// Get grouped entries including tasks
+async function getGroupedEntries() {
+  const grouped = {};
+  const logSnap = await db.ref("logbook").orderByChild("studentName").equalTo(studentName).once("value");
+  logSnap.forEach(child => {
+    const e = child.val();
+    grouped[e.date] = grouped[e.date] || { activities: [], challenges: new Set(), equipment: [], tasks: [] };
+    grouped[e.date].activities.push("• " + e.activity);
+    if (e.challenges) grouped[e.date].challenges.add("• " + e.challenges);
+    grouped[e.date].equipment.push("• " + (e.equipment || "Not specified"));
+  });
+
+  // fetch tasks
+  const taskSnap = await db.ref("tasks").orderByChild("studentId").equalTo(studentId).once("value");
+  taskSnap.forEach(child => {
+    const t = child.val();
+    if (!t.dateAssigned) return;
+    const taskDate = new Date(t.dateAssigned).toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    grouped[taskDate] = grouped[taskDate] || { activities: [], challenges: new Set(), equipment: [], tasks: [] };
+    grouped[taskDate].tasks.push(`• ${t.description} (${t.taskdone ? "Done" : "Pending"})`);
+  });
+
+  // ensure challenges is not empty
+  for (const d in grouped) { if (grouped[d].challenges.size === 0) grouped[d].challenges.add("• None"); }
+
+  return grouped;
+}
+
+async function loadEntries() {
+  const weekdays = getWeekdays();
+  const grouped = await getGroupedEntries();
+  const container = document.getElementById("entriesList");
+
+  let tableHTML = `<table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Task</th>
+        <th>Activity Description</th>
+        <th>Challenges Faced</th>
+        <th>Equipment Used</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  weekdays.forEach(d => {
+    const data = grouped[d.date];
+    const hasEntry = !!data;
+    const activities = hasEntry ? data.activities.join("<br>") : "...";
+    const challenges = hasEntry ? Array.from(data.challenges).join("<br>") : "...";
+    const equipment = hasEntry ? data.equipment.join("<br>") : "...";
+    const tasks = hasEntry ? (data.tasks.join("<br>") || "• None") : "• None";
+
+    tableHTML += `<tr>
+      <td>${d.date}</td>
+      <td>${tasks}</td>
+      <td>${activities}</td>
+      <td>${challenges}</td>
+      <td>${equipment}</td>
+      <td>`;
+    if (!hasEntry) tableHTML += `<button class="edit-btn" onclick="showInlineForm(this,'${d.raw.toISOString()}')">Fill Missing</button>`;
+    tableHTML += `</td></tr>`;
+  });
+
+  tableHTML += `</tbody></table>`;
+  container.innerHTML = tableHTML;
+}
+
+// Inline form
+window.showInlineForm = function(button, dateStr) {
+  const tr = button.closest("tr");
+  if (tr.querySelector(".inline-form")) return;
+  const formHTML = `
+    <div class="inline-form">
+      <label>Activity Description</label>
+      <textarea id="missedActivity"></textarea>
+      <label>Challenges Faced</label>
+      <textarea id="missedChallenges"></textarea>
+      <label>Equipment Used</label>
+      <input type="text" id="missedEquipment">
+      <button class="save-missed-btn" onclick="saveMissedEntry('${dateStr}')">Save</button>
+    </div>`;
+  const td = tr.querySelector("td:last-child");
+  td.innerHTML = formHTML;
+};
+
+window.saveMissedEntry = function(dateStr) {
+  const activity = document.getElementById("missedActivity").value.trim();
+  const challenges = document.getElementById("missedChallenges").value.trim();
+  const equipment = document.getElementById("missedEquipment").value.trim();
+  if (!activity) { alert("Activity is required!"); return; }
+  addOrEditEntry(dateStr, { activity, challenges, equipment });
+};
+
+// PDF generation
+document.getElementById("viewLogbookBtn").addEventListener("click", async () => {
+  const grouped = await getGroupedEntries();
+  const weekdays = getWeekdays();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text("Internship Logbook", 14, 15);
+  doc.setFontSize(12);
+  doc.text(`Name: ${studentName}`, 14, 25);
+  const body = [];
+  weekdays.forEach(d => {
+    const data = grouped[d.date] || { activities: ["None"], challenges: ["None"], equipment: ["None"], tasks: [] };
+    body.push([
+      d.date,
+      data.tasks.join("\n") || "None",
+      data.activities.join("\n"),
+      Array.from(data.challenges).join("\n"),
+      data.equipment.join("\n")
+    ]);
+  });
+  doc.autoTable({
+    startY: 35,
+    head: [["Date", "Task", "Activity Description", "Challenges Faced", "Equipment Used"]],
+    body: body,
+    styles: { fontSize: 10, cellPadding: 3, valign: "top" },
+    headStyles: { fillColor: [0, 123, 255] },
+    theme: "grid",
+  });
+  doc.save(`${studentName}_Weekly_Logbook.pdf`);
+});
+
+window.onload = loadEntries;
+</script>
+</body>
+</html>

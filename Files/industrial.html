@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Industrial Supervisor Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background-color: #f6f8fb; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
+    header { background-color: #fff; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    header h1 { font-size: 22px; color: #1e293b; font-weight: 600; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; background-color: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; cursor: default; }
+    main { padding: 30px 40px; flex: 1; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 25px; }
+    .tabs button { border: 1px solid #cbd5e1; background: white; color: #1e293b; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: 0.3s; }
+    .tabs button.active { background-color: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+    .dashboard-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); padding: 20px; transition: 0.3s ease; cursor: default; }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 5px 14px rgba(0,0,0,0.08); }
+    .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .card-icon { background-color: #e0f2fe; color: #0284c7; border-radius: 8px; padding: 10px; font-size: 20px; }
+    .card h3 { font-size: 15px; color: #1e293b; }
+    .card p { font-size: 13px; color: #6b7280; margin-bottom: 5px; }
+    .card h2 { font-size: 26px; color: #1e3a8a; margin-top: 5px; }
+    .attach-student { background: #fff; padding: 20px; margin-bottom: 40px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
+    .attach-student input { padding: 10px; width: 60%; border: 1px solid #cbd5e1; border-radius: 6px; margin-right: 10px; }
+    .attach-student button { padding: 10px 16px; border: none; background-color: #2563eb; color: #fff; border-radius: 6px; cursor: pointer; }
+    .attach-result { margin-top: 15px; font-size: 15px; color: #1e293b; }
+    .table-container { background: white; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); padding: 20px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 14px 10px; text-align: left; }
+    th { background-color: #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+    td { border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #334155; }
+    .status { display: inline-block; padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .evaluate-btn { background-color: #2563eb; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: 0.3s; }
+    .evaluate-btn:hover { background-color: #1d4ed8; }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      justify-content: center; align-items: center;
+    }
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 400px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .progress-container { margin: 20px 0; }
+    .progress-bar {
+      height: 15px; background: #e5e7eb; border-radius: 10px; overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .progress {
+      height: 15px;
+      background: linear-gradient(90deg, #22c55e, #3b82f6);
+      width: 0%; transition: width 0.5s ease;
+    }
+    .performance-options button {
+      padding: 8px 14px; border: none; border-radius: 6px; margin: 5px;
+      cursor: pointer; color: white; font-weight: 500;
+    }
+    .excellent { background-color: #16a34a; }
+    .good { background-color: #3b82f6; }
+    .average { background-color: #facc15; color: #000; }
+    .struggling { background-color: #f97316; }
+    .weak { background-color: #dc2626; }
+    .close-btn {
+      background: #6b7280; color: white; padding: 6px 10px;
+      border: none; border-radius: 6px; cursor: pointer; margin-top: 15px;
+    }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Internship Tracking Dashboard</h1>
+    <div class="user-info">
+      <div class="avatar" id="avatar">IS</div>
+      <p id="supervisorName">Industrial Supervisor</p>
+    </div>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="active" id="tabName">Industry Supervisor</button>
+    </div>
+
+    <div class="dashboard-cards">
+      <div class="card" id="internCard">
+        <div class="card-header">
+          <div class="card-icon">🎓</div>
+          <div>
+            <h3>Interns</h3>
+            <p>Students under supervision</p>
+          </div>
+        </div>
+        <h2 id="internCount">0</h2>
+      </div>
+
+      <!-- Tasks Assigned -->
+      <div class="card" id="tasksCard">
+        <div class="card-header">
+          <div class="card-icon">🗂️</div>
+          <div>
+            <h3>Tasks Assigned</h3>
+            <p>Active assignments</p>
+          </div>
+        </div>
+        <h2 id="taskCount">0</h2>
+      </div>
+       <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📊</div>
+          <div>
+            <h3>Evaluations</h3>
+            <p>Completed reviews</p>
+          </div>
+        </div>
+        <h2>10</h2>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">⏰</div>
+          <div>
+            <h3>Avg Hours Worked</h3>
+            <p>Weekly average</p>
+          </div>
+        </div>
+        <h2>28h</h2>
+      </div>
+      <div class="card" id="logoutCard">
+        <div class="card-header">
+          <div class="card-icon">🚪</div>
+          <div>
+            <h3>Logout</h3>
+            <p>Sign out of your account</p>
+          </div>
+        </div>
+       
+      </div>
+    </div>
+
+    <div class="attach-student">
+      <input type="text" id="studentSearch" placeholder="Enter student name..." />
+      <button onclick="searchStudent()">Search</button>
+      <div class="attach-result" id="searchResult"></div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Position</th>
+            <th>Start Date</th>
+            <th>Task Completion</th>
+            <th>Performance</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="internTableBody">
+          <tr><td colspan="6">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Evaluation Modal -->
+  <div class="modal" id="evalModal">
+    <div class="modal-content">
+      <h3>Evaluate Performance</h3>
+      <div class="progress-container">
+        <div class="progress-bar"><div class="progress" id="progressFill"></div></div>
+      </div>
+      <div class="performance-options">
+        <button class="excellent" onclick="choosePerformance('Excellent', 100)">Excellent</button>
+        <button class="good" onclick="choosePerformance('Good', 80)">Good</button>
+        <button class="average" onclick="choosePerformance('Average', 60)">Average</button>
+        <button class="struggling" onclick="choosePerformance('Struggling', 40)">Struggling</button>
+        <button class="weak" onclick="choosePerformance('Weak', 20)">Weak</button>
+      </div>
+      <button class="close-btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const userData = JSON.parse(localStorage.getItem("currentUser"));
+    let supervisorName = userData?.name || "Industrial Supervisor";
+    let supervisorId = userData?.id || "";
+
+    document.getElementById("supervisorName").textContent = supervisorName;
+    const initials = supervisorName.split(" ").map(n => n[0]).join("").substring(0,2).toUpperCase();
+    document.getElementById("avatar").textContent = initials;
+    document.getElementById("tabName").textContent = supervisorName;
+
+    // NEW LOGOUT CARD NAVIGATION
+    document.getElementById("logoutCard").addEventListener("click", () => {
+      window.location.href = "logout.html";
+    });
+
+    // Count interns
+    function countInterns() {
+      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
+        .on("value", snapshot => document.getElementById("internCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0);
+    }
+    countInterns();
+
+    // Count all tasks
+    function countTasks() {
+      db.ref("tasks").on("value", snapshot => {
+        document.getElementById("taskCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0;
+      });
+    }
+    countTasks();
+
+    let currentStudentId = "";
+
+    function loadInterns() {
+      const tbody = document.getElementById("internTableBody");
+      tbody.innerHTML = "";
+      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
+        .once("value", snapshot => {
+          if (!snapshot.exists()) { tbody.innerHTML = "<tr><td colspan='6'>No interns assigned.</td></tr>"; return; }
+
+          snapshot.forEach(child => {
+            const s = child.val();
+            const studentId = child.key;
+
+            db.ref("evaluation/" + studentId).once("value", evalSnap => {
+              const evalData = evalSnap.exists() ? evalSnap.val() : null;
+
+              const position = evalData?.position || s.position || "-";
+              const startDate = evalData?.startDate || s.startDate || "-";
+              const performance = evalData?.performance || "-";
+
+              // **Fetch task completion dynamically**
+              db.ref("tasks").orderByChild("studentName").equalTo(s.name).once("value", taskSnap => {
+                let totalTasks = 0;
+                let completedTasks = 0;
+                if (taskSnap.exists()) {
+                  totalTasks = taskSnap.numChildren();
+                  taskSnap.forEach(tsk => {
+                    if (tsk.val().taskdone === true) completedTasks++;
+                  });
+                }
+                const taskCompletion = `${completedTasks} / ${totalTasks}`;
+
+                tbody.innerHTML += `
+                  <tr>
+                    <td>${s.name || "-"}</td>
+                    <td>${position}</td>
+                    <td>${startDate}</td>
+                    <td>${taskCompletion}</td>
+                    <td><span class="status">${performance}</span></td>
+                    <td>
+                      <button class="evaluate-btn" onclick="openModal('${studentId}')">Evaluate</button>
+                    </td>
+                  </tr>
+                `;
+              });
+            });
+          });
+        });
+    }
+    loadInterns();
+
+    function openModal(studentId) {
+      currentStudentId = studentId;
+      document.getElementById("evalModal").style.display = "flex";
+      document.getElementById("progressFill").style.width = "0%";
+    }
+
+    function closeModal() {
+      document.getElementById("evalModal").style.display = "none";
+    }
+
+    function choosePerformance(status, percent) {
+      document.getElementById("progressFill").style.width = percent + "%";
+      if (!currentStudentId) return;
+      db.ref("evaluation/" + currentStudentId).once("value", snap => {
+        const data = snap.exists() ? snap.val() : {};
+        db.ref("evaluation/" + currentStudentId).set({
+          studentId: currentStudentId,
+          studentName: data.studentName || "",
+          position: data.position || "",
+          startDate: data.startDate || "",
+          performance: status,
+          supervisor: supervisorName
+        }).then(() => { loadInterns(); });
+      });
+    }
+
+    document.getElementById("internCard").addEventListener("click", () => {
+      localStorage.setItem("currentSupervisor", JSON.stringify({ name: supervisorName, id: supervisorId }));
+      window.location.href = "students-list.html";
+    });
+
+    document.getElementById("tasksCard").addEventListener("click", () => {
+      localStorage.setItem("currentSupervisor", JSON.stringify({ name: supervisorName, id: supervisorId }));
+      window.location.href = "tasks.html";
+    });
+
+    function searchStudent() {
+      const searchName = document.getElementById("studentSearch").value.trim();
+      const resultDiv = document.getElementById("searchResult");
+      if (!searchName) { resultDiv.innerHTML = "<p>Please enter a student name.</p>"; return; }
+
+      db.ref("students").orderByChild("name").equalTo(searchName).once("value", snapshot => {
+        if (!snapshot.exists()) { resultDiv.innerHTML = "<p>No student found with that name.</p>"; return; }
+        snapshot.forEach(child => {
+          const studentId = child.key;
+          const studentData = child.val();
+          resultDiv.innerHTML = `<p>Found: <b>${studentData.name}</b></p>
+          <button onclick="attachStudent('${studentId}')">Attach</button>`;
+        });
+      });
+    }
+
+    function attachStudent(studentId) {
+      db.ref("students/" + studentId).update({ industrialSupervisor: supervisorName, industrialSupervisorId: supervisorId })
+        .then(() => { 
+          document.getElementById("searchResult").innerHTML = `<p style="color:green;">Student attached to ${supervisorName}</p>`; 
+          countInterns(); loadInterns();
+        })
+        .catch(error => { console.error(error); document.getElementById("searchResult").innerHTML = `<p style="color:red;">Failed: ${error.message}</p>`; });
+    }
+  </script>
+</body>
+</html>

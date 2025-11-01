@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tasks | Supervisor Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background-color: #f6f8fb; color: #333; min-height: 100vh; }
+    header { background-color: #fff; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    header h1 { font-size: 22px; color: #1e293b; font-weight: 600; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; background-color: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; cursor: default; }
+    main { padding: 30px 40px; }
+    .table-container { background: white; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); padding: 20px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 14px 10px; text-align: left; }
+    th { background-color: #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+    td { border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #334155; }
+    .task-status { display: inline-block; padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background-color: #dbeafe; color: #1d4ed8; }
+    .back-btn { margin-bottom: 20px; padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+    .back-btn:hover { background: #1d4ed8; }
+    .add-task-btn { background: #10b981; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: 0.3s; }
+    .add-task-btn:hover { background: #059669; }
+    .toggle-status-btn { background: #f59e0b; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: 0.3s; margin-left: 5px;}
+    .toggle-status-btn:hover { background: #d97706; }
+
+    /* Modal */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+    .modal-content { background-color: #fff; margin: 10% auto; padding: 20px; border-radius: 12px; width: 400px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+    .modal h3 { margin-bottom: 15px; }
+    .modal input, .modal textarea { width: 90%; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #cbd5e1; }
+    .modal textarea { height: 100px; }
+    .modal button { margin: 5px; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: 0.3s; }
+    .modal button.submit-btn { background: #2563eb; color: #fff; }
+    .modal button.cancel-btn { background: #f87171; color: #fff; }
+    .modal button:hover { opacity: 0.85; }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Tasks Assigned</h1>
+    <div class="user-info">
+      <div class="avatar" id="avatar">IS</div>
+      <p id="supervisorName">Supervisor</p>
+    </div>
+  </header>
+
+  <main>
+    <button class="back-btn" onclick="goBack()">← Back to Dashboard</button>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Position</th>
+            <th>Current Date</th>
+            <th>Task Count</th>
+            <th>Task Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tasksTableBody">
+          <tr><td colspan="6">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Add Task Modal -->
+  <div id="taskModal" class="modal">
+    <div class="modal-content">
+      <h3>Add Task</h3>
+      <textarea id="taskDescription" placeholder="Task Description"></textarea>
+      <input type="text" id="taskTime" placeholder="Time for Task (e.g., 2 hours)" />
+      <input type="date" id="taskDate" />
+      <br/>
+      <button class="submit-btn" onclick="submitTask()">Add Task</button>
+      <button class="cancel-btn" onclick="closeTaskModal()">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const supervisorData = JSON.parse(localStorage.getItem("currentSupervisor"));
+    const supervisorName = supervisorData?.name || "Supervisor";
+    const initials = supervisorName.split(" ").map(n => n[0]).join("").substring(0,2).toUpperCase();
+
+    document.getElementById("supervisorName").textContent = supervisorName;
+    document.getElementById("avatar").textContent = initials;
+
+    const tbody = document.getElementById("tasksTableBody");
+    let currentStudentId = null;
+    let currentStudentName = null;
+
+    function getCurrentDate() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function loadTasks() {
+      tbody.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
+
+      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
+        .once("value", snapshot => {
+          if (!snapshot.exists()) {
+            tbody.innerHTML = "<tr><td colspan='6'>No students assigned.</td></tr>";
+            return;
+          }
+
+          tbody.innerHTML = "";
+          snapshot.forEach(child => {
+            const s = child.val();
+            const studentId = child.key;
+            const currentDate = getCurrentDate();
+
+            db.ref("tasks").once("value", allTasksSnap => {
+              let taskCount = 0;
+              let taskStatus = "Not Assigned";
+
+              allTasksSnap.forEach(taskChild => {
+                const t = taskChild.val();
+                if (t.studentId === studentId) {
+                  taskCount++;
+                  taskStatus = t.status || "Not Assigned";
+                }
+              });
+
+              tbody.innerHTML += `
+                <tr>
+                  <td>${s.name || "-"}</td>
+                  <td>${s.position || "-"}</td>
+                  <td>${currentDate}</td>
+                  <td>${taskCount}</td>
+                  <td><span class="task-status">${taskStatus}</span></td>
+                  <td>
+                    <button class="add-task-btn" onclick="openTaskModal('${studentId}','${s.name}')">Add Task</button>
+                    <button class="toggle-status-btn" onclick="toggleTaskStatus('${studentId}')">Toggle Status</button>
+                  </td>
+                </tr>
+              `;
+            });
+          });
+        });
+    }
+
+    function openTaskModal(studentId, studentName) {
+      currentStudentId = studentId;
+      currentStudentName = studentName;
+      document.getElementById("taskModal").style.display = "block";
+    }
+
+    function closeTaskModal() {
+      document.getElementById("taskModal").style.display = "none";
+      document.getElementById("taskDescription").value = "";
+      document.getElementById("taskTime").value = "";
+      document.getElementById("taskDate").value = "";
+    }
+
+    function submitTask() {
+      const desc = document.getElementById("taskDescription").value.trim();
+      const time = document.getElementById("taskTime").value.trim();
+      const date = document.getElementById("taskDate").value;
+
+      if (!desc || !time || !date) {
+        alert("Please fill in all fields.");
+        return;
+      }
+
+      const newTaskRef = db.ref("tasks").push();
+      newTaskRef.set({
+        studentId: currentStudentId,
+        studentName: currentStudentName,
+        description: desc,
+        duration: time,
+        dateAssigned: date,
+        status: "Not Assigned",
+        supervisor: supervisorName,
+        taskdone: false
+      }).then(() => {
+        closeTaskModal();
+        loadTasks();
+      });
+    }
+
+    // ✅ Toggle only status without changing taskdone
+    function toggleTaskStatus(studentId) {
+      db.ref("tasks").once("value", snapshot => {
+        snapshot.forEach(taskChild => {
+          const task = taskChild.val();
+          if (task.studentId === studentId) {
+            const newStatus = task.status === "Assigned" ? "Not Assigned" : "Assigned";
+            taskChild.ref.update({ status: newStatus }); // Only update status
+          }
+        });
+        loadTasks();
+      });
+    }
+
+    function goBack() {
+      window.location.href = "industrial.html";
+    }
+
+    loadTasks();
+  </script>
+</body>
+</html>

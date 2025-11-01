@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>View Weekly Reports</title>
+<style>
+body {
+  font-family: "Poppins", sans-serif;
+  background: #f6f8fb;
+  margin: 0;
+  padding: 20px;
+}
+h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-avatar {
+  background: #007bff;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.report-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+.report-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.report-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.report-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+.report-card p {
+  color: #777;
+  font-size: 14px;
+  margin: 4px 0;
+}
+.back-btn {
+  margin-bottom: 20px;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 6px;
+  background: #007bff;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.3s;
+}
+.back-btn:hover {
+  background: #0056b3;
+}
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  justify-content: center;
+  align-items: center;
+}
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  max-height: 80%;
+  overflow-y: auto;
+  width: 90%;
+  max-width: 700px;
+}
+.modal-content h2 {
+  margin-top: 0;
+}
+.modal-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+.modal-content table, th, td {
+  border: 1px solid #ccc;
+}
+.modal-content th, td {
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.close-btn {
+  float: right;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 18px;
+  color: #555;
+}
+.close-btn:hover {
+  color: #000;
+}
+#downloadPDF {
+  margin-top: 15px;
+  padding: 10px 18px;
+  background: #28a745;
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.3s;
+}
+#downloadPDF:hover {
+  background: #218838;
+}
+</style>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<!-- jsPDF + html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <h1>Weekly Reports Submitted</h1>
+  <div class="user-info">
+    <div class="user-avatar" id="user-avatar">JD</div>
+    <div>
+      <span id="user-name" style="font-weight:600;">John Doe</span><br>
+      <small id="user-regno" style="color:#666;">Reg No: 2023-UG-001</small>
+    </div>
+  </div>
+</div>
+
+<button class="back-btn" onclick="window.location.href='student.html'">⬅ Back to Dashboard</button>
+
+<div class="report-list" id="reportList"></div>
+
+<!-- Modal -->
+<div class="modal" id="reportModal">
+  <div class="modal-content" id="pdfContent">
+    <span class="close-btn" id="closeModal">&times;</span>
+    <h2 id="modalTitle"></h2>
+    <p><b>Name:</b> <span id="pdfUserName"></span></p>
+    <p><b>Reg No:</b> <span id="pdfUserRegNo"></span></p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Activity</th>
+          <th>Challenges</th>
+          <th>Equipment</th>
+          <th>Tasks</th>
+        </tr>
+      </thead>
+      <tbody id="modalBody"></tbody>
+    </table>
+
+    <button id="downloadPDF">📄 Download PDF</button>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+  authDomain: "internworld.firebaseapp.com",
+  databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+  projectId: "internworld",
+  storageBucket: "internworld.firebasestorage.app",
+  messagingSenderId: "963772778365",
+  appId: "1:963772778365:web:4203f314d1bd9879f72e14"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
+const userName = currentUser.name || "Student Internee";
+const userRegNo = currentUser.regNo || "2023-UG-001";
+const userId = currentUser.id || "no-id";
+
+document.getElementById("user-name").textContent = userName;
+document.getElementById("user-regno").textContent = "";
+document.getElementById("user-avatar").textContent = userName
+  .split(" ")
+  .map(n => n[0])
+  .join("")
+  .toUpperCase();
+
+const reportList = document.getElementById("reportList");
+const modal = document.getElementById("reportModal");
+const modalTitle = document.getElementById("modalTitle");
+const modalBody = document.getElementById("modalBody");
+const closeModal = document.getElementById("closeModal");
+const pdfUserName = document.getElementById("pdfUserName");
+const pdfUserRegNo = document.getElementById("pdfUserRegNo");
+const downloadBtn = document.getElementById("downloadPDF");
+
+closeModal.onclick = () => (modal.style.display = "none");
+window.onclick = e => { if (e.target == modal) modal.style.display = "none"; };
+
+// Load reports
+async function loadReports() {
+  const reportsRef = db.ref(`weeklyReports/${userId}`);
+  const snapshot = await reportsRef.once("value");
+  const reports = snapshot.exists() ? snapshot.val() : {};
+
+  reportList.innerHTML = "";
+
+  Object.keys(reports).sort().forEach(weekName => {
+    const card = document.createElement("div");
+    card.className = "report-card";
+    card.innerHTML = `<h3>${weekName}</h3><p>Click to view details</p>`;
+    card.onclick = () => showReportDetails(reports[weekName]);
+    reportList.appendChild(card);
+  });
+}
+
+// Show report in modal
+function showReportDetails(report) {
+  modalTitle.textContent = report.weekName || "Weekly Report";
+  pdfUserName.textContent = userName;
+  pdfUserRegNo.textContent = userRegNo;
+
+  modalBody.innerHTML = "";
+  const allActivities = [];
+  const allChallenges = [];
+  const allEquipment = [];
+  const allTasks = [];
+
+  report.reportData.forEach(r => {
+    if (r.activity && r.activity.toLowerCase() !== "none") allActivities.push(r.activity);
+    if (r.challenges && r.challenges.toLowerCase() !== "none") allChallenges.push(r.challenges);
+    if (r.equipment && r.equipment.toLowerCase() !== "none") allEquipment.push(r.equipment);
+    if (r.tasks && r.tasks.toLowerCase() !== "none") allTasks.push(r.tasks);
+  });
+
+  const formatList = arr => arr.length ? "• " + arr.join("<br>• ") : "-";
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td>${formatList(allActivities)}</td>
+    <td>${formatList(allChallenges)}</td>
+    <td>${formatList(allEquipment)}</td>
+    <td>${formatList(allTasks)}</td>
+  `;
+  modalBody.appendChild(row);
+
+  downloadBtn.onclick = () => downloadPDF(report.weekName);
+  modal.style.display = "flex";
+}
+
+// Download PDF without showing the button in PDF
+async function downloadPDF(weekName) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const content = document.getElementById("pdfContent");
+
+  // Hide the download button before capture
+  downloadBtn.style.display = "none";
+
+  await html2canvas(content, { scale: 1.2 }).then(canvas => {
+    const imgData = canvas.toDataURL("image/png");
+    const imgProps = doc.getImageProperties(imgData);
+    const pdfWidth = doc.internal.pageSize.getWidth() - 60;
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    doc.addImage(imgData, "PNG", 30, 30, pdfWidth, pdfHeight);
+    doc.save(`${userName}_${weekName}_Report.pdf`);
+  });
+
+  // Restore the download button after PDF creation
+  downloadBtn.style.display = "block";
+}
+
+loadReports();
+</script>
+</body>
+</html>
