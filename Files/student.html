@@ -79,13 +79,6 @@ button.generate-btn:hover { background:#0056b3; }
     <strong id="supervisorsCount">2</strong>
   </div>
 
-  <div class="card">
-    <div class="card-icon">⏰</div>
-    <h3>Hours Logged</h3>
-    <p>This month</p>
-    <strong>21</strong>
-  </div>
-
    <div class="card" id="logoutCard">
     <div class="card-icon">🚪</div>
     <h3>Logout</h3>
@@ -208,12 +201,13 @@ async function populateWeeks() {
   });
   return weeks;
 }
-  // LOGOUT CARD NAVIGATION
+
+// LOGOUT
 document.getElementById("logoutCard").addEventListener("click", () => {
   window.location.href = "index.html";
 });
 
-// Generate report
+// ✅ Generate report with studentId field
 generateBtn.addEventListener("click", async () => {
   const selectedWeekIndex = weekSelect.value;
   if (selectedWeekIndex === "") return alert("Please select a week!");
@@ -240,16 +234,27 @@ generateBtn.addEventListener("click", async () => {
     if (tDate >= selectedWeek.start && tDate <= selectedWeek.end) weekTasks.push(task);
   });
 
-  const reportData = weekEntries.map(e=>({
+  const reportData = weekEntries.map(e => ({
     date: new Date(e.timestamp).toDateString(),
     activity: e.activity,
     challenges: e.challenges || "None",
     equipment: e.equipment || "None",
-    tasks: weekTasks.filter(t=>new Date(t.dateAssigned).toDateString() === new Date(e.timestamp).toDateString()).map(t=>`${t.description} (${t.taskdone?"Done":"Pending"})`).join(", ") || "None"
+    tasks: weekTasks
+      .filter(t => new Date(t.dateAssigned).toDateString() === new Date(e.timestamp).toDateString())
+      .map(t => `${t.description} (${t.taskdone ? "Done" : "Pending"})`)
+      .join(", ") || "None"
   }));
 
+  // ✅ Save report with studentId and studentName included
+  const reportRecord = {
+    studentId: userId,
+    studentName: userName,
+    weekName: selectedWeek.weekName,
+    createdAt: Date.now(),
+    reportData
+  };
 
-  await db.ref(`weeklyReports/${userId}/${selectedWeek.weekName}`).set({ reportData, weekName: selectedWeek.weekName, createdAt: Date.now() });
+  await db.ref(`weeklyReports/${userId}/${selectedWeek.weekName}`).set(reportRecord);
   alert(`✅ ${selectedWeek.weekName} report generated and saved!`);
   await populateWeeks();
   updateReportsCount();

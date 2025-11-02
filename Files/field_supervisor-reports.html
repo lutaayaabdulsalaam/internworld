@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>University Supervisor Reports Review</title>
+<style>
+  body { font-family: "Poppins", sans-serif; background:#f6f8fb; margin:0; padding:20px; }
+  h1 { font-size:22px; font-weight:600; margin-bottom:20px; }
+  .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .avatar { background:#2563eb; color:white; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; background:white; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); overflow:hidden; }
+  th, td { padding:12px; text-align:left; vertical-align:top; }
+  th { background:#f1f5f9; font-weight:600; color:#1e293b; }
+  td { border-bottom:1px solid #e2e8f0; color:#334155; }
+  tr:hover { background:#f9fafb; }
+  .back-btn { background:#2563eb; color:white; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:500; margin-bottom:15px; }
+  .view-btn { background:#16a34a; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:500; transition:background 0.3s; }
+  .view-btn:hover { background:#15803d; }
+
+  /* Modal */
+  .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background:rgba(0,0,0,0.5); }
+  .modal-content { background:white; margin:5% auto; padding:20px; border-radius:12px; width:90%; max-width:700px; box-shadow:0 4px 15px rgba(0,0,0,0.2); }
+  .close { float:right; font-size:22px; font-weight:bold; cursor:pointer; }
+  .report-item { padding:10px; border-bottom:1px solid #e2e8f0; cursor:pointer; }
+  .report-item:hover { background:#f1f5f9; }
+  .report-table { margin-top:15px; width:100%; border-collapse: collapse; }
+  .report-table th, .report-table td { border:1px solid #ccc; padding:8px; text-align:left; vertical-align:top; }
+</style>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <h1>University Supervisor Reports Review</h1>
+  <div class="user-info">
+    <div class="avatar" id="avatar">US</div>
+    <span id="supervisorName">University Supervisor</span>
+  </div>
+</div>
+
+<button class="back-btn" onclick="window.history.back()">← Back</button>
+
+<table>
+  <thead>
+    <tr>
+      <th>Student Name</th>
+      <th>Number of Reports</th>
+      <th>Date of Last Report</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody id="reportTableBody">
+    <tr><td colspan="4">Loading...</td></tr>
+  </tbody>
+</table>
+
+<!-- Modal for Weekly Reports -->
+<div id="reportModal" class="modal">
+  <div class="modal-content">
+    <span class="close" id="modalClose">&times;</span>
+    <h3 id="modalStudentName">Student Reports</h3>
+    <div id="weeklyReportList">Loading...</div>
+    <table class="report-table" id="reportDetails" style="display:none;">
+      <thead>
+        <tr>
+          <th>Activity</th>
+          <th>Challenges</th>
+          <th>Equipment</th>
+          <th>Tasks</th>
+        </tr>
+      </thead>
+      <tbody id="reportBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+  authDomain: "internworld.firebaseapp.com",
+  databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+  projectId: "internworld",
+  storageBucket: "internworld.firebasestorage.app",
+  messagingSenderId: "963772778365",
+  appId: "1:963772778365:web:4203f314d1bd9879f72e14"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// University supervisor info
+const supervisorData = JSON.parse(localStorage.getItem("currentUser")) || {};
+const supervisorName = supervisorData.name || "University Supervisor";
+document.getElementById("supervisorName").textContent = supervisorName;
+document.getElementById("avatar").textContent = supervisorName.split(" ").map(n=>n[0]).join("").toUpperCase();
+
+const tbody = document.getElementById("reportTableBody");
+tbody.innerHTML = "<tr><td colspan='4'>Fetching students and reports...</td></tr>";
+
+// Fetch students supervised by this university supervisor
+db.ref("students").once("value", studentSnap => {
+  if (!studentSnap.exists()) {
+    tbody.innerHTML = "<tr><td colspan='4'>No students under supervision.</td></tr>";
+    return;
+  }
+
+  tbody.innerHTML = "";
+  studentSnap.forEach(snap => {
+    const student = snap.val();
+    if(student.supervisor === supervisorData.id || student.supervisorName === supervisorName) {
+      const studentName = student.name;
+      const studentId = snap.key;
+
+      db.ref(`weeklyReports/${studentId}`).once("value", reportsSnap => {
+        let numReports = 0;
+        let lastReportDate = "-";
+        if (reportsSnap.exists()) {
+          const reportKeys = Object.keys(reportsSnap.val());
+          numReports = reportKeys.length;
+
+          let latestTimestamp = 0;
+          reportsSnap.forEach(r => {
+            const report = r.val();
+            if (report.createdAt && report.createdAt > latestTimestamp) latestTimestamp = report.createdAt;
+          });
+          if (latestTimestamp) lastReportDate = new Date(latestTimestamp).toLocaleDateString();
+        }
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${studentName}</td>
+            <td>${numReports}</td>
+            <td>${lastReportDate}</td>
+            <td><button class="view-btn" onclick="viewWeeklyReports('${studentId}', '${studentName}')">View Reports</button></td>
+          </tr>
+        `;
+      });
+    }
+  });
+});
+
+// Modal logic
+const modal = document.getElementById("reportModal");
+const modalClose = document.getElementById("modalClose");
+const weeklyReportList = document.getElementById("weeklyReportList");
+const reportDetails = document.getElementById("reportDetails");
+const reportBody = document.getElementById("reportBody");
+const modalStudentName = document.getElementById("modalStudentName");
+
+modalClose.onclick = () => { modal.style.display = "none"; reportDetails.style.display = "none"; weeklyReportList.style.display = "block"; };
+window.onclick = e => { if(e.target == modal) { modal.style.display = "none"; reportDetails.style.display = "none"; weeklyReportList.style.display = "block"; } };
+
+function viewWeeklyReports(studentId, studentName) {
+  modalStudentName.textContent = `Reports of ${studentName}`;
+  weeklyReportList.innerHTML = "Loading...";
+  reportDetails.style.display = "none";
+  weeklyReportList.style.display = "block";
+
+  db.ref(`weeklyReports/${studentId}`).once("value", snap => {
+    if (!snap.exists()) {
+      weeklyReportList.innerHTML = "<p>No reports submitted yet.</p>";
+      modal.style.display = "block";
+      return;
+    }
+
+    const reports = [];
+    snap.forEach(r => {
+      const report = r.val();
+      const dateStr = report.createdAt ? new Date(report.createdAt).toLocaleDateString() : "-";
+      reports.push({ weekName: report.weekName || "-", date: dateStr, reportData: report.reportData || [] });
+    });
+
+    reports.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    weeklyReportList.innerHTML = "";
+    reports.forEach(r => {
+      const div = document.createElement("div");
+      div.className = "report-item";
+      div.textContent = `${r.weekName} - ${r.date}`;
+      div.onclick = () => showReportTable(r);
+      weeklyReportList.appendChild(div);
+    });
+
+    modal.style.display = "block";
+  });
+}
+
+function showReportTable(report) {
+  weeklyReportList.style.display = "none";
+  reportDetails.style.display = "table";
+  reportBody.innerHTML = "";
+
+  const formatPoints = arr => {
+    const filtered = arr.filter(x => x && x.toLowerCase() !== "none");
+    return filtered.length ? "• " + filtered.join("<br>• ") : "-";
+  };
+
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td>${formatPoints(report.reportData.map(r => r.activity))}</td>
+    <td>${formatPoints(report.reportData.map(r => r.challenges))}</td>
+    <td>${formatPoints(report.reportData.map(r => r.equipment))}</td>
+    <td>${formatPoints(report.reportData.map(r => r.tasks))}</td>
+  `;
+  reportBody.appendChild(row);
+}
+</script>
+
+</body>
+</html>

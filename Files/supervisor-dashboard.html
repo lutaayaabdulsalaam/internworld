@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Internship Tracking Dashboard</title>
+  <title>University Supervisor Dashboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
     body { background: #f6f8fb; color: #333; padding: 20px; }
@@ -39,13 +39,13 @@
   <div class="topbar">
     <h1>University Supervisor Dashboard</h1>
     <div class="profile">
-      <div class="avatar" id="avatar">JD</div>
-      <span id="userName">John Doe</span>
+      <div class="avatar" id="avatar">No network</div>
+      <span id="userName"></span>
     </div>
   </div>
 
   <div class="tabs">
-    <button class="active">University Supervisor dashboard</button>
+    <button class="active">University Supervisor Dashboard</button>
   </div>
 
   <div class="cards">
@@ -61,11 +61,10 @@
       <p>Require your attention</p>
       <div class="number">7</div>
     </div>
-    <div class="card">
+    <div class="card" id="reportsCard">
       <div class="card-icon">📄</div>
       <h3>Reports to Review</h3>
       <p>Weekly reports</p>
-      <div class="number">12</div>
     </div>
     <div class="card" id="partnerCard">
       <div class="card-icon">🏢</div>
@@ -73,6 +72,12 @@
       <p>Active partnerships</p>
       <div class="number" id="partnerCount">0</div>
     </div>
+     <div class="card" id="logoutCard">
+      <div class="card-icon">🚪</div>
+            <h3>Logout</h3>
+            <p>Sign out of your account</p>
+        </div>
+  </div>
   </div>
 
   <div class="progress-section">
@@ -80,7 +85,6 @@
       <h2>Student Progress</h2>
       <button>Generate Report</button>
     </div>
-
     <table>
       <thead>
         <tr>
@@ -115,57 +119,84 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-
     const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
-    // Navigate to assigned students page
+    if(currentUser) {
+      document.getElementById("userName").textContent = currentUser.name;
+      document.getElementById("avatar").textContent = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    }
+
+    const assignedCountElem = document.getElementById("assignedCount");
+    const partnerCountElem = document.getElementById("partnerCount");
+    const reportCountElem = document.getElementById("reportCount");
+
+    // Navigate cards
     document.getElementById("assignedCard").addEventListener("click", () => {
       window.location.href = "assigned-students.html";
     });
-
-    // Navigate to partner companies page
     document.getElementById("partnerCard").addEventListener("click", () => {
       window.location.href = "partner-companies.html";
     });
+    document.getElementById("reportsCard").addEventListener("click", () => {
+      window.location.href = "university_supervisor-reports.html";
+    });
 
-    if (currentUser && currentUser.role === "supervisor") {
-      // Display current user info
-      document.getElementById("userName").textContent = currentUser.name;
-      document.getElementById("avatar").textContent = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+       document.getElementById("logoutCard").addEventListener("click", () => {
+      window.location.href = "logout.html";
+    });
 
-      const assignedCountElem = document.getElementById("assignedCount");
-      const partnerCountElem = document.getElementById("partnerCount");
+    // Fetch students under this supervisor
+    get(ref(db, "students")).then(studentSnap => {
+      if(!studentSnap.exists()) return;
 
-      // Fetch assigned students
-      get(ref(db, "students")).then(snapshot => {
-        if (snapshot.exists()) {
-          let assignedCount = 0;
-          const industrialSupervisorIds = new Set();
-          snapshot.forEach(child => {
-            const student = child.val();
-            if (student.supervisorName === currentUser.name || student.supervisor === currentUser.id) {
-              assignedCount++;
-              industrialSupervisorIds.add(student.industrialSupervisorId);
-            }
-          });
-          assignedCountElem.textContent = assignedCount;
-
-          // Fetch companies related to industrial supervisors
-          get(ref(db, "companies")).then(compSnapshot => {
-            if (compSnapshot.exists()) {
-              let partnerCount = 0;
-              compSnapshot.forEach(compChild => {
-                const company = compChild.val();
-                if (industrialSupervisorIds.has(compChild.key)) {
-                  partnerCount++;
-                }
-              });
-              partnerCountElem.textContent = partnerCount;
-            }
-          }).catch(err => console.error("Error fetching companies:", err));
+      const supervisorStudentIds = [];
+      studentSnap.forEach(snap => {
+        const student = snap.val();
+        if(student.supervisorName === currentUser.name || student.supervisor === currentUser.id) {
+          supervisorStudentIds.push({id: snap.key, data: student});
         }
-      }).catch(err => console.error("Error fetching students:", err));
-    }
+      });
+
+      // Assigned Students Count
+      assignedCountElem.textContent = supervisorStudentIds.length;
+
+      // Reports to Review Count
+      if(supervisorStudentIds.length > 0){
+        let totalReports = 0;
+        let completed = 0;
+
+        supervisorStudentIds.forEach(studentObj => {
+          get(ref(db, `weeklyReports/${studentObj.id}`)).then(reportSnap => {
+            if(reportSnap.exists()) totalReports += reportSnap.numChildren();
+            completed++;
+            if(completed === supervisorStudentIds.length){
+              reportCountElem.textContent = totalReports;
+            }
+          }).catch(err => console.error(err));
+        });
+      }
+
+      // Partner Companies Count
+      get(ref(db, "companies")).then(compSnap => {
+        if(!compSnap.exists()){
+          partnerCountElem.textContent = 0;
+          return;
+        }
+
+        let partnerCount = 0;
+        compSnap.forEach(compSnapChild => {
+          const company = compSnapChild.val();
+          const companyId = compSnapChild.key;
+
+          // Check if any student assigned to this supervisor is linked to this company
+          const linkedStudents = supervisorStudentIds.filter(sObj => sObj.data.industrialSupervisorId === companyId);
+          if(linkedStudents.length > 0) partnerCount++;
+        });
+
+        partnerCountElem.textContent = partnerCount;
+      }).catch(err => console.error("Error fetching companies:", err));
+    }).catch(err => console.error("Error fetching students:", err));
+
   </script>
 </body>
 </html>

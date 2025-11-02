@@ -108,7 +108,6 @@
         <h2 id="internCount">0</h2>
       </div>
 
-      <!-- Tasks Assigned -->
       <div class="card" id="tasksCard">
         <div class="card-header">
           <div class="card-icon">🗂️</div>
@@ -119,16 +118,29 @@
         </div>
         <h2 id="taskCount">0</h2>
       </div>
+
       <div class="card" id="evaluationsCard">
-      <div class="card-header">
-        <div class="card-icon">📊</div>
-        <div>
-          <h3>Evaluations</h3>
-          <p>Completed reviews</p>
+        <div class="card-header">
+          <div class="card-icon">📊</div>
+          <div>
+            <h3>Evaluations</h3>
+            <p>Completed reviews</p>
+          </div>
         </div>
+        <h2 id="evaluationCount">0</h2>
       </div>
-      <h2 id="evaluationCount">0</h2>
-    </div>
+
+      <div class="card" id="reportsCard">
+        <div class="card-header">
+          <div class="card-icon">📄</div>
+          <div>
+            <h3>Reports to Review</h3>
+            <p>Weekly reports</p>
+          </div>
+        </div>
+        
+      </div>
+      
       <div class="card" id="logoutCard">
         <div class="card-header">
           <div class="card-icon">🚪</div>
@@ -137,7 +149,6 @@
             <p>Sign out of your account</p>
           </div>
         </div>
-       
       </div>
     </div>
 
@@ -161,7 +172,7 @@
           </tr>
         </thead>
         <tbody id="internTableBody">
-          <tr><td colspan="7">Loading...</td></tr>
+          <tr><td colspan='7'>Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -208,119 +219,7 @@
     document.getElementById("avatar").textContent = initials;
     document.getElementById("tabName").textContent = supervisorName;
 
-    // Logout card navigation
-    document.getElementById("logoutCard").addEventListener("click", () => {
-      window.location.href = "logout.html";
-    });
-
-    document.getElementById("evaluationsCard").addEventListener("click", () => {
-      localStorage.setItem("currentSupervisor", JSON.stringify({ name: supervisorName, id: supervisorId }));
-      window.location.href = "students-evaluations.html";
-    });
-
-    function countEvaluations() {
-      db.ref("evaluation").once("value", snapshot => {
-        document.getElementById("evaluationCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0;
-      });
-    }
-    countEvaluations();
-
-    function countInterns() {
-      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
-        .on("value", snapshot => document.getElementById("internCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0);
-    }
-    countInterns();
-
-    function countTasks() {
-      db.ref("tasks").on("value", snapshot => {
-        document.getElementById("taskCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0;
-      });
-    }
-    countTasks();
-
-    let currentStudentId = "";
-
-    function loadInterns() {
-      const tbody = document.getElementById("internTableBody");
-      tbody.innerHTML = "";
-      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
-        .once("value", snapshot => {
-          if (!snapshot.exists()) { tbody.innerHTML = "<tr><td colspan='7'>No interns assigned.</td></tr>"; return; }
-
-          snapshot.forEach(child => {
-            const s = child.val();
-            const studentId = child.key;
-
-            db.ref("evaluation/" + studentId).once("value", evalSnap => {
-              const evalData = evalSnap.exists() ? evalSnap.val() : null;
-
-              const position = evalData?.position || s.position || "-";
-              const startDate = evalData?.startDate || s.startDate || "-";
-              const performance = evalData?.performance || "-";
-
-              // Attendance calculation
-              const attendanceCount = evalData?.attendanceCount ?? 40; // 40 total days
-              const attendancePercent = (((40 - attendanceCount) / 40) * 100).toFixed(0);
-
-              // Task completion
-              db.ref("tasks").orderByChild("studentName").equalTo(s.name).once("value", taskSnap => {
-                let totalTasks = 0;
-                let completedTasks = 0;
-                if (taskSnap.exists()) {
-                  totalTasks = taskSnap.numChildren();
-                  taskSnap.forEach(tsk => {
-                    if (tsk.val().taskdone === true) completedTasks++;
-                  });
-                }
-                const taskCompletion = `${completedTasks} / ${totalTasks}`;
-
-                tbody.innerHTML += `
-                  <tr>
-                    <td>${s.name || "-"}</td>
-                    <td>${position}</td>
-                    <td>${startDate}</td>
-                    <td>${taskCompletion}</td>
-                    <td><span class="status">${performance}</span></td>
-                    <td>${attendancePercent}%</td>
-                    <td>
-                      <button class="evaluate-btn" onclick="openModal('${studentId}')">Evaluate</button>
-                    </td>
-                  </tr>
-                `;
-              });
-            });
-          });
-        });
-    }
-    loadInterns();
-
-    function openModal(studentId) {
-      currentStudentId = studentId;
-      document.getElementById("evalModal").style.display = "flex";
-      document.getElementById("progressFill").style.width = "0%";
-    }
-
-    function closeModal() {
-      document.getElementById("evalModal").style.display = "none";
-    }
-
-    function choosePerformance(status, percent) {
-      document.getElementById("progressFill").style.width = percent + "%";
-      if (!currentStudentId) return;
-      db.ref("evaluation/" + currentStudentId).once("value", snap => {
-        const data = snap.exists() ? snap.val() : {};
-        db.ref("evaluation/" + currentStudentId).set({
-          studentId: currentStudentId,
-          studentName: data.studentName || "",
-          position: data.position || "",
-          startDate: data.startDate || "",
-          performance: status,
-          attendanceCount: data.attendanceCount ?? 40,
-          supervisor: supervisorName
-        }).then(() => { loadInterns(); });
-      });
-    }
-
+    // Card navigation
     document.getElementById("internCard").addEventListener("click", () => {
       localStorage.setItem("currentSupervisor", JSON.stringify({ name: supervisorName, id: supervisorId }));
       window.location.href = "students-list.html";
@@ -331,14 +230,120 @@
       window.location.href = "tasks.html";
     });
 
+    document.getElementById("evaluationsCard").addEventListener("click", () => {
+      localStorage.setItem("currentSupervisor", JSON.stringify({ name: supervisorName, id: supervisorId }));
+      window.location.href = "students-evaluations.html";
+    });
+
+    document.getElementById("reportsCard").addEventListener("click", () => {
+      localStorage.setItem("currentSupervisor", JSON.stringify({ name: supervisorName, id: supervisorId }));
+      window.location.href = "field_supervisor-reports.html";
+    });
+
+    document.getElementById("logoutCard").addEventListener("click", () => {
+      window.location.href = "logout.html";
+    });
+
+    // Counts
+    function countInterns() {
+      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
+        .on("value", snapshot => document.getElementById("internCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0);
+    }
+    function countTasks() {
+      db.ref("tasks").on("value", snapshot => document.getElementById("taskCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0);
+    }
+    function countEvaluations() {
+      db.ref("evaluation").once("value", snapshot => {
+        document.getElementById("evaluationCount").textContent = snapshot.exists() ? snapshot.numChildren() : 0;
+      });
+    }
+
+    // **Reports to Review Count**
+    function countReports() {
+      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName).once("value", snapshot => {
+        if (!snapshot.exists()) { document.getElementById("reportCount").textContent = 0; return; }
+        let totalReports = 0;
+        const studentIds = Object.keys(snapshot.val());
+        let completed = 0;
+        studentIds.forEach(id => {
+          db.ref("reports/" + id).once("value", reportSnap => {
+            if (reportSnap.exists()) totalReports += reportSnap.numChildren();
+            completed++;
+            if (completed === studentIds.length) {
+              document.getElementById("reportCount").textContent = totalReports;
+            }
+          });
+        });
+      });
+    }
+
+    // Load interns table
+    let currentStudentId = "";
+    function loadInterns() {
+      const tbody = document.getElementById("internTableBody");
+      tbody.innerHTML = "";
+      db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName)
+        .once("value", snapshot => {
+          if (!snapshot.exists()) { tbody.innerHTML = "<tr><td colspan='7'>No interns assigned.</td></tr>"; return; }
+          snapshot.forEach(child => {
+            const s = child.val();
+            const studentId = child.key;
+            db.ref("evaluation/" + studentId).once("value", evalSnap => {
+              const evalData = evalSnap.exists() ? evalSnap.val() : {};
+              const position = evalData?.position || s.position || "-";
+              const startDate = evalData?.startDate || s.startDate || "-";
+              const performance = evalData?.performance || "-";
+              const attendanceCount = evalData?.attendanceCount ?? 40;
+              const attendancePercent = (((40 - attendanceCount)/40)*100).toFixed(0);
+              db.ref("tasks").orderByChild("studentName").equalTo(s.name).once("value", taskSnap => {
+                let totalTasks = 0, completedTasks = 0;
+                if (taskSnap.exists()) {
+                  totalTasks = taskSnap.numChildren();
+                  taskSnap.forEach(tsk => { if(tsk.val().taskdone) completedTasks++; });
+                }
+                const taskCompletion = `${completedTasks} / ${totalTasks}`;
+                tbody.innerHTML += `
+                  <tr>
+                    <td>${s.name || "-"}</td>
+                    <td>${position}</td>
+                    <td>${startDate}</td>
+                    <td>${taskCompletion}</td>
+                    <td><span class="status">${performance}</span></td>
+                    <td>${attendancePercent}%</td>
+                    <td><button class="evaluate-btn" onclick="openModal('${studentId}')">Evaluate</button></td>
+                  </tr>`;
+              });
+            });
+          });
+        });
+    }
+
+    function openModal(studentId) { currentStudentId = studentId; document.getElementById("evalModal").style.display = "flex"; document.getElementById("progressFill").style.width = "0%"; }
+    function closeModal() { document.getElementById("evalModal").style.display = "none"; }
+    function choosePerformance(status, percent) {
+      document.getElementById("progressFill").style.width = percent + "%";
+      if(!currentStudentId) return;
+      db.ref("evaluation/" + currentStudentId).once("value", snap => {
+        const data = snap.exists() ? snap.val() : {};
+        db.ref("evaluation/" + currentStudentId).set({
+          studentId: currentStudentId,
+          studentName: data.studentName || "",
+          position: data.position || "",
+          startDate: data.startDate || "",
+          performance: status,
+          attendanceCount: data.attendanceCount ?? 40,
+          supervisor: supervisorName
+        }).then(()=>{ loadInterns(); countReports(); });
+      });
+    }
+
     function searchStudent() {
       const searchName = document.getElementById("studentSearch").value.trim();
       const resultDiv = document.getElementById("searchResult");
-      if (!searchName) { resultDiv.innerHTML = "<p>Please enter a student name.</p>"; return; }
-
-      db.ref("students").orderByChild("name").equalTo(searchName).once("value", snapshot => {
-        if (!snapshot.exists()) { resultDiv.innerHTML = "<p>No student found with that name.</p>"; return; }
-        snapshot.forEach(child => {
+      if(!searchName) { resultDiv.innerHTML="<p>Please enter a student name.</p>"; return; }
+      db.ref("students").orderByChild("name").equalTo(searchName).once("value", snapshot=>{
+        if(!snapshot.exists()){ resultDiv.innerHTML="<p>No student found with that name.</p>"; return; }
+        snapshot.forEach(child=>{
           const studentId = child.key;
           const studentData = child.val();
           resultDiv.innerHTML = `<p>Found: <b>${studentData.name}</b></p>
@@ -348,13 +353,13 @@
     }
 
     function attachStudent(studentId) {
-      db.ref("students/" + studentId).update({ industrialSupervisor: supervisorName, industrialSupervisorId: supervisorId })
-        .then(() => { 
-          document.getElementById("searchResult").innerHTML = `<p style="color:green;">Student attached to ${supervisorName}</p>`; 
-          countInterns(); loadInterns();
-        })
-        .catch(error => { console.error(error); document.getElementById("searchResult").innerHTML = `<p style="color:red;">Failed: ${error.message}</p>`; });
+      db.ref("students/"+studentId).update({industrialSupervisor: supervisorName, industrialSupervisorId: supervisorId})
+      .then(()=>{ document.getElementById("searchResult").innerHTML=`<p style="color:green;">Student attached to ${supervisorName}</p>`; countInterns(); loadInterns(); countReports(); })
+      .catch(err=>{ console.error(err); document.getElementById("searchResult").innerHTML=`<p style="color:red;">Failed: ${err.message}</p>`; });
     }
+
+    // Initialize counts
+    countInterns(); countTasks(); countEvaluations(); countReports(); loadInterns();
   </script>
 </body>
 </html>
