@@ -160,7 +160,7 @@
 
   <main>
     <div class="dashboard-cards">
-      <div class="card">
+      <div class="card" id="studentsCard">
         <h2 id="totalStudents">0</h2>
         <p>Total Students</p>
       </div>
@@ -249,6 +249,10 @@
     const interneeSelect = document.getElementById("internee");
     const supervisorSelect = document.getElementById("supervisorSelect");
     const attachForm = document.getElementById("attachForm");
+
+      document.getElementById("studentsCard").addEventListener("click", () => {
+      window.location.href = "admin_students.html";
+    });
 
     roleSelect.addEventListener("change", () => {
       if (roleSelect.value === "student") {

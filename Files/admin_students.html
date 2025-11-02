@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Students | Admin</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      background-color: #f6f8fb;
+      color: #333;
+      padding: 40px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #1e3a8a;
+      margin-bottom: 30px;
+      font-size: 26px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    th {
+      background-color: #1e3a8a;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    tr:hover {
+      background-color: #f1f5f9;
+    }
+
+    .back-btn {
+      display: inline-block;
+      margin-bottom: 20px;
+      background: #1e3a8a;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: 0.3s;
+    }
+
+    .back-btn:hover {
+      background: #163169;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 20px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <a href="admin.html" class="back-btn">← Back to Dashboard</a>
+  <h1>All Registered Students</h1>
+
+  <table id="studentsTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Registration No.</th>
+      </tr>
+    </thead>
+    <tbody id="studentsBody">
+      <tr><td colspan="3" class="no-data">Loading students...</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const studentsBody = document.getElementById("studentsBody");
+
+    // Load all students
+    function loadStudents() {
+      const studentsRef = ref(db, "students");
+      onValue(studentsRef, (snapshot) => {
+        studentsBody.innerHTML = ""; // Clear existing rows
+
+        if (!snapshot.exists()) {
+          studentsBody.innerHTML = `<tr><td colspan="3" class="no-data">No students found</td></tr>`;
+          return;
+        }
+
+        snapshot.forEach((child) => {
+          const s = child.val();
+          const row = `
+            <tr>
+              <td>${s.name || "-"}</td>
+              <td>${s.email || "-"}</td>
+              <td>${s.regNumber || "-"}</td>
+            </tr>
+          `;
+          studentsBody.innerHTML += row;
+        });
+      });
+    }
+
+    loadStudents();
+  </script>
+</body>
+</html>

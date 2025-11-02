@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assigned Students | Admin</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      background-color: #f6f8fb;
+      color: #333;
+      padding: 40px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #1e3a8a;
+      margin-bottom: 30px;
+      font-size: 26px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    th {
+      background-color: #1e3a8a;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    tr:hover {
+      background-color: #f1f5f9;
+    }
+
+    .back-btn {
+      display: inline-block;
+      margin-bottom: 20px;
+      background: #1e3a8a;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: 0.3s;
+    }
+
+    .back-btn:hover {
+      background: #163169;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 20px;
+      color: #6b7280;
+    }
+
+    button.detach-btn {
+      background-color: #dc2626;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: 0.3s;
+    }
+
+    button.detach-btn:hover {
+      background-color: #b91c1c;
+    }
+
+  </style>
+</head>
+<body>
+  <a href="admin.html" class="back-btn">← Back to Dashboard</a>
+  <h1>Assigned Students</h1>
+
+  <table id="studentsTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Registration No.</th>
+        <th>University Supervisor</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="studentsBody">
+      <tr><td colspan="5" class="no-data">Loading assigned students...</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const studentsBody = document.getElementById("studentsBody");
+
+    // Load only assigned students
+    function loadAssignedStudents() {
+      const studentsRef = ref(db, "students");
+      onValue(studentsRef, (snapshot) => {
+        studentsBody.innerHTML = ""; // Clear existing rows
+
+        if (!snapshot.exists()) {
+          studentsBody.innerHTML = `<tr><td colspan="5" class="no-data">No assigned students found</td></tr>`;
+          return;
+        }
+
+        let foundAssigned = false;
+
+        snapshot.forEach((child) => {
+          const key = child.key;
+          const s = child.val();
+
+          if (s.supervisorName && s.supervisorName.trim() !== "") {
+            foundAssigned = true;
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${s.name || "-"}</td>
+              <td>${s.email || "-"}</td>
+              <td>${s.regNumber || "-"}</td>
+              <td>${s.supervisorName}</td>
+              <td><button class="detach-btn" data-id="${key}">Detach</button></td>
+            `;
+            studentsBody.appendChild(row);
+          }
+        });
+
+        if (!foundAssigned) {
+          studentsBody.innerHTML = `<tr><td colspan="5" class="no-data">No assigned students found</td></tr>`;
+        }
+
+        // Attach event listeners to all detach buttons
+        const detachButtons = document.querySelectorAll(".detach-btn");
+        detachButtons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const studentId = btn.getAttribute("data-id");
+            detachSupervisor(studentId);
+          });
+        });
+      });
+    }
+
+    // Detach supervisor from student
+    function detachSupervisor(studentId) {
+      const studentRef = ref(db, "students/" + studentId);
+      update(studentRef, {
+        supervisorName: "",
+        supervisor: ""
+      })
+        .then(() => {
+          alert("Supervisor detached successfully!");
+        })
+        .catch((error) => {
+          alert("Error detaching supervisor: " + error.message);
+        });
+    }
+
+    loadAssignedStudents();
+  </script>
+</body>
+</html>
