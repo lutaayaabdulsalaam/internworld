@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>University Supervisor Reports Review</title>
+<title>Supervisor Reports Review</title>
 <style>
   body { font-family: "Poppins", sans-serif; background:#f6f8fb; margin:0; padding:20px; }
   h1 { font-size:22px; font-weight:600; margin-bottom:20px; }
@@ -33,10 +33,10 @@
 <body>
 
 <div class="header">
-  <h1>University Supervisor Reports Review</h1>
+  <h1>Supervisor Reports Review</h1>
   <div class="user-info">
-    <div class="avatar" id="avatar">US</div>
-    <span id="supervisorName">University Supervisor</span>
+    <div class="avatar" id="avatar">IS</div>
+    <span id="supervisorName">Industrial Supervisor</span>
   </div>
 </div>
 
@@ -89,17 +89,17 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// University supervisor info
-const supervisorData = JSON.parse(localStorage.getItem("currentUser")) || {};
-const supervisorName = supervisorData.name || "University Supervisor";
+// Supervisor info
+const supervisorData = JSON.parse(localStorage.getItem("currentSupervisor")) || {};
+const supervisorName = supervisorData.name || "Industrial Supervisor";
 document.getElementById("supervisorName").textContent = supervisorName;
 document.getElementById("avatar").textContent = supervisorName.split(" ").map(n=>n[0]).join("").toUpperCase();
 
 const tbody = document.getElementById("reportTableBody");
 tbody.innerHTML = "<tr><td colspan='4'>Fetching students and reports...</td></tr>";
 
-// Fetch students supervised by this university supervisor
-db.ref("students").once("value", studentSnap => {
+// Fetch students supervised by this supervisor
+db.ref("students").orderByChild("industrialSupervisor").equalTo(supervisorName).once("value", studentSnap => {
   if (!studentSnap.exists()) {
     tbody.innerHTML = "<tr><td colspan='4'>No students under supervision.</td></tr>";
     return;
@@ -108,39 +108,37 @@ db.ref("students").once("value", studentSnap => {
   tbody.innerHTML = "";
   studentSnap.forEach(snap => {
     const student = snap.val();
-    if(student.supervisor === supervisorData.id || student.supervisorName === supervisorName) {
-      const studentName = student.name;
-      const studentId = snap.key;
+    const studentName = student.name;
+    const studentId = snap.key;
 
-      db.ref(`weeklyReports/${studentId}`).once("value", reportsSnap => {
-        let numReports = 0;
-        let lastReportDate = "-";
-        if (reportsSnap.exists()) {
-          const reportKeys = Object.keys(reportsSnap.val());
-          numReports = reportKeys.length;
+    db.ref(`weeklyReports/${studentId}`).once("value", reportsSnap => {
+      let numReports = 0;
+      let lastReportDate = "-";
+      if (reportsSnap.exists()) {
+        const reportKeys = Object.keys(reportsSnap.val());
+        numReports = reportKeys.length;
 
-          let latestTimestamp = 0;
-          reportsSnap.forEach(r => {
-            const report = r.val();
-            if (report.createdAt && report.createdAt > latestTimestamp) latestTimestamp = report.createdAt;
-          });
-          if (latestTimestamp) lastReportDate = new Date(latestTimestamp).toLocaleDateString();
-        }
+        let latestTimestamp = 0;
+        reportsSnap.forEach(r => {
+          const report = r.val();
+          if (report.createdAt && report.createdAt > latestTimestamp) latestTimestamp = report.createdAt;
+        });
+        if (latestTimestamp) lastReportDate = new Date(latestTimestamp).toLocaleDateString();
+      }
 
-        tbody.innerHTML += `
-          <tr>
-            <td>${studentName}</td>
-            <td>${numReports}</td>
-            <td>${lastReportDate}</td>
-            <td><button class="view-btn" onclick="viewWeeklyReports('${studentId}', '${studentName}')">View Reports</button></td>
-          </tr>
-        `;
-      });
-    }
+      tbody.innerHTML += `
+        <tr>
+          <td>${studentName}</td>
+          <td>${numReports}</td>
+          <td>${lastReportDate}</td>
+          <td><button class="view-btn" onclick="viewWeeklyReports('${studentId}', '${studentName}')">View Reports</button></td>
+        </tr>
+      `;
+    });
   });
 });
 
-// Modal logic
+// Modal
 const modal = document.getElementById("reportModal");
 const modalClose = document.getElementById("modalClose");
 const weeklyReportList = document.getElementById("weeklyReportList");
