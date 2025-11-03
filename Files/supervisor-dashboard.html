@@ -21,25 +21,40 @@
     .card h3 { font-size: 16px; font-weight: 600; margin-bottom: 5px; }
     .card p { color: #777; font-size: 14px; margin-bottom: 15px; }
     .card .number { font-size: 24px; font-weight: 700; color: #333; }
+
     .progress-section { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
     .progress-header h2 { font-size: 18px; font-weight: 600; }
     .progress-header button { background: #1a73e8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eee; }
     th { background: #f9fafb; font-weight: 600; }
-    .status { padding: 5px 10px; border-radius: 20px; font-size: 13px; font-weight: 500; display: inline-block; }
-    .on-track { background: #d4edda; color: #155724; }
-    .needs-review { background: #fff3cd; color: #856404; }
-    .good-progress { background: #d1ecf1; color: #0c5460; }
-    @media (max-width: 600px) { .progress-header { flex-direction: column; align-items: flex-start; gap: 10px; } }
+
+    .status { display: inline-block; padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .evaluate-btn { background-color: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+    .evaluate-btn:hover { background-color: #1d4ed8; }
+
+    /* Modal styles */
+    .modal { display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); text-align: center; }
+    .progress-container { margin: 20px 0; }
+    .progress-bar { height: 15px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+    .progress { height: 15px; background: linear-gradient(90deg, #22c55e, #3b82f6); width: 0%; transition: width 0.5s ease; }
+    .performance-options button { padding: 8px 14px; border: none; border-radius: 6px; margin: 5px; cursor: pointer; color: white; font-weight: 500; }
+    .excellent { background-color: #16a34a; }
+    .good { background-color: #3b82f6; }
+    .average { background-color: #facc15; color: #000; }
+    .struggling { background-color: #f97316; }
+    .weak { background-color: #dc2626; }
+    .close-btn { background: #6b7280; color: white; padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; margin-top: 15px; }
   </style>
 </head>
 <body>
   <div class="topbar">
     <h1>University Supervisor Dashboard</h1>
     <div class="profile">
-      <div class="avatar" id="avatar">No network</div>
+      <div class="avatar" id="avatar">NN</div>
       <span id="userName"></span>
     </div>
   </div>
@@ -72,39 +87,54 @@
       <p>Active partnerships</p>
       <div class="number" id="partnerCount">0</div>
     </div>
-     <div class="card" id="logoutCard">
+    <div class="card" id="logoutCard">
       <div class="card-icon">🚪</div>
-            <h3>Logout</h3>
-            <p>Sign out of your account</p>
-        </div>
-  </div>
+      <h3>Logout</h3>
+      <p>Sign out of your account</p>
+    </div>
   </div>
 
   <div class="progress-section">
     <div class="progress-header">
       <h2>Student Progress</h2>
-      <button>Generate Report</button>
     </div>
     <table>
       <thead>
         <tr>
           <th>Student Name</th>
-          <th>Company</th>
           <th>Position</th>
-          <th>Hours Completed</th>
-          <th>Last Report</th>
-          <th>Status</th>
+          <th>Start Date</th>
+          <th>Task Completion</th>
+          <th>Performance</th>
+          <th>Attendance (%)</th>
         </tr>
       </thead>
       <tbody id="studentTable">
-        <!-- Dynamically populate students if needed -->
+        <tr><td colspan="7">Loading...</td></tr>
       </tbody>
     </table>
   </div>
 
+  <div class="modal" id="evalModal">
+    <div class="modal-content">
+      <h3>Evaluate Performance</h3>
+      <div class="progress-container">
+        <div class="progress-bar"><div class="progress" id="progressFill"></div></div>
+      </div>
+      <div class="performance-options">
+        <button class="excellent" onclick="choosePerformance('Excellent', 100)">Excellent</button>
+        <button class="good" onclick="choosePerformance('Good', 80)">Good</button>
+        <button class="average" onclick="choosePerformance('Average', 60)">Average</button>
+        <button class="struggling" onclick="choosePerformance('Struggling', 40)">Struggling</button>
+        <button class="weak" onclick="choosePerformance('Weak', 20)">Weak</button>
+      </div>
+      <button class="close-btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getDatabase, ref, get, child, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
@@ -119,84 +149,100 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
-    if(currentUser) {
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+    if(currentUser){
       document.getElementById("userName").textContent = currentUser.name;
-      document.getElementById("avatar").textContent = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+      document.getElementById("avatar").textContent = currentUser.name.split(' ').map(n=>n[0]).join('').toUpperCase();
     }
 
     const assignedCountElem = document.getElementById("assignedCount");
     const partnerCountElem = document.getElementById("partnerCount");
-    const reportCountElem = document.getElementById("reportCount");
 
-    // Navigate cards
-    document.getElementById("assignedCard").addEventListener("click", () => {
-      window.location.href = "assigned-students.html";
-    });
-    document.getElementById("partnerCard").addEventListener("click", () => {
-      window.location.href = "partner-companies.html";
-    });
-    document.getElementById("reportsCard").addEventListener("click", () => {
-      window.location.href = "university_supervisor-reports.html";
-    });
+    document.getElementById("assignedCard").addEventListener("click",()=>{ window.location.href="assigned-students.html"; });
+    document.getElementById("partnerCard").addEventListener("click",()=>{ window.location.href="partner-companies.html"; });
+    document.getElementById("reportsCard").addEventListener("click",()=>{ window.location.href="university_supervisor-reports.html"; });
+    document.getElementById("logoutCard").addEventListener("click",()=>{ window.location.href="logout.html"; });
 
-       document.getElementById("logoutCard").addEventListener("click", () => {
-      window.location.href = "logout.html";
-    });
-
-    // Fetch students under this supervisor
-    get(ref(db, "students")).then(studentSnap => {
-      if(!studentSnap.exists()) return;
-
-      const supervisorStudentIds = [];
-      studentSnap.forEach(snap => {
-        const student = snap.val();
-        if(student.supervisorName === currentUser.name || student.supervisor === currentUser.id) {
-          supervisorStudentIds.push({id: snap.key, data: student});
-        }
+    let currentStudentId = "";
+    function openModal(studentId){ currentStudentId=studentId; document.getElementById("evalModal").style.display="flex"; document.getElementById("progressFill").style.width="0%"; }
+    function closeModal(){ document.getElementById("evalModal").style.display="none"; }
+    function choosePerformance(status, percent){
+      document.getElementById("progressFill").style.width=percent+"%";
+      if(!currentStudentId) return;
+      get(child(ref(db), `evaluation/${currentStudentId}`)).then(snap=>{
+        const data = snap.exists()? snap.val() : {};
+        set(ref(db, `evaluation/${currentStudentId}`), {
+          studentId: currentStudentId,
+          studentName: data.studentName || "",
+          position: data.position || "",
+          startDate: data.startDate || "",
+          performance: status,
+          attendanceCount: data.attendanceCount ?? 40,
+          supervisor: currentUser.name
+        }).then(()=> loadStudents());
       });
+    }
 
-      // Assigned Students Count
-      assignedCountElem.textContent = supervisorStudentIds.length;
+    function loadStudents(){
+      const tbody = document.getElementById("studentTable");
+      tbody.innerHTML="";
+      get(ref(db,"students")).then(studentSnap=>{
+        if(!studentSnap.exists()){ tbody.innerHTML="<tr><td colspan='7'>No students assigned.</td></tr>"; return; }
 
-      // Reports to Review Count
-      if(supervisorStudentIds.length > 0){
-        let totalReports = 0;
-        let completed = 0;
-
-        supervisorStudentIds.forEach(studentObj => {
-          get(ref(db, `weeklyReports/${studentObj.id}`)).then(reportSnap => {
-            if(reportSnap.exists()) totalReports += reportSnap.numChildren();
-            completed++;
-            if(completed === supervisorStudentIds.length){
-              reportCountElem.textContent = totalReports;
-            }
-          }).catch(err => console.error(err));
-        });
-      }
-
-      // Partner Companies Count
-      get(ref(db, "companies")).then(compSnap => {
-        if(!compSnap.exists()){
-          partnerCountElem.textContent = 0;
-          return;
-        }
-
-        let partnerCount = 0;
-        compSnap.forEach(compSnapChild => {
-          const company = compSnapChild.val();
-          const companyId = compSnapChild.key;
-
-          // Check if any student assigned to this supervisor is linked to this company
-          const linkedStudents = supervisorStudentIds.filter(sObj => sObj.data.industrialSupervisorId === companyId);
-          if(linkedStudents.length > 0) partnerCount++;
+        const students = [];
+        studentSnap.forEach(snap=>{
+          const s = snap.val();
+          if(s.supervisorName===currentUser.name || s.supervisor===currentUser.id){
+            students.push({id: snap.key, data: s});
+          }
         });
 
-        partnerCountElem.textContent = partnerCount;
-      }).catch(err => console.error("Error fetching companies:", err));
-    }).catch(err => console.error("Error fetching students:", err));
+        assignedCountElem.textContent = students.length;
 
+        if(students.length===0){ tbody.innerHTML="<tr><td colspan='7'>No students assigned.</td></tr>"; return; }
+
+        // Calculate Partner Companies Count
+        const companyIds = new Set();
+        students.forEach(s => { if(s.data.industrialSupervisorId) companyIds.add(s.data.industrialSupervisorId); });
+        partnerCountElem.textContent = companyIds.size;
+
+        students.forEach(sObj=>{
+          get(child(ref(db), `evaluation/${sObj.id}`)).then(evalSnap=>{
+            const evalData = evalSnap.exists()? evalSnap.val() : {};
+            const position = evalData.position || sObj.data.position || "-";
+            const startDate = evalData.startDate || sObj.data.startDate || "-";
+            const performance = evalData.performance || "-";
+            const attendanceCount = evalData.attendanceCount ?? 40;
+            const attendancePercent = (((40-attendanceCount)/40)*100).toFixed(0);
+
+            get(ref(db,"tasks")).then(taskSnap=>{
+              let totalTasks=0, completedTasks=0;
+              if(taskSnap.exists()){
+                taskSnap.forEach(t=>{
+                  if(t.val().studentName===sObj.data.name){
+                    totalTasks++;
+                    if(t.val().taskdone) completedTasks++;
+                  }
+                });
+              }
+              const taskCompletion = `${completedTasks} / ${totalTasks}`;
+              tbody.innerHTML += `
+                <tr>
+                  <td>${sObj.data.name || "-"}</td>
+                  <td>${position}</td>
+                  <td>${startDate}</td>
+                  <td>${taskCompletion}</td>
+                  <td><span class="status">${performance}</span></td>
+                  <td>${attendancePercent}%</td>
+                </tr>`;
+            });
+          });
+        });
+      });
+    }
+
+    loadStudents();
   </script>
 </body>
 </html>

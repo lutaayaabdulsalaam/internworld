@@ -55,6 +55,7 @@
       padding: 20px;
       transition: 0.3s ease;
       text-align: center;
+      cursor: pointer;
     }
 
     .card:hover {
@@ -164,15 +165,17 @@
         <h2 id="totalStudents">0</h2>
         <p>Total Students</p>
       </div>
-      <div class="card">
+      <div class="card" id="supervCard">
         <h2 id="totalSupervisors">0</h2>
         <p>University Supervisors</p>
       </div>
-      <div class="card">
+      <div class="card" id="companiesCard">
         <h2 id="totalCompanies">0</h2>
         <p>Partner Companies</p>
       </div>
-      <div class="card">
+
+      <!-- ✅ Added ID for Assigned Internees card -->
+      <div class="card" id="assignedInterneesCard">
         <h2 id="activeInternships">0</h2>
         <p>Assigned Internees</p>
       </div>
@@ -250,10 +253,23 @@
     const supervisorSelect = document.getElementById("supervisorSelect");
     const attachForm = document.getElementById("attachForm");
 
-      document.getElementById("studentsCard").addEventListener("click", () => {
+    // ✅ Navigation for cards
+    document.getElementById("studentsCard").addEventListener("click", () => {
       window.location.href = "admin_students.html";
     });
+    document.getElementById("supervCard").addEventListener("click", () => {
+      window.location.href = "university-supervisors.html";
+    });
+    // ✅ New: Clickable Assigned Internees card
+    document.getElementById("assignedInterneesCard").addEventListener("click", () => {
+      window.location.href = "assigned_internees.html";
+    });
+    document.getElementById("companiesCard").addEventListener("click", () => {
+    window.location.href = "partner_companies.html";
+  });
 
+
+    // Role-specific extra fields
     roleSelect.addEventListener("change", () => {
       if (roleSelect.value === "student") {
         extraContainer.innerHTML = `
@@ -270,16 +286,15 @@
       }
     });
 
-    // Save new user (with default password)
+    // Add user logic
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = document.getElementById("name").value;
       const email = document.getElementById("email").value;
       const role = roleSelect.value;
-
       if (!role) return alert("Please select a role.");
+      const password = "123";
 
-      const password = "123"; // Default password
       let data = { name, email, password };
 
       if (role === "student") {
@@ -299,7 +314,7 @@
       extraContainer.innerHTML = "";
     });
 
-    // Load stats
+    // Update dashboard counts
     function updateCounts() {
       onValue(ref(db, "students"), (snapshot) => {
         let total = 0, active = 0;
@@ -308,9 +323,8 @@
           total++;
           const student = child.val();
           if (student.supervisor) {
-            active++; // Only count students with a supervisor as active
+            active++;
           } else {
-            // Only show students without a supervisor in dropdown
             interneeSelect.innerHTML += `<option value="${child.key}">${student.name}</option>`;
           }
         });
@@ -333,27 +347,19 @@
     }
     updateCounts();
 
-    // Attach supervisor to internee with name
+    // Attach supervisor
     attachForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const interneeId = interneeSelect.value;
       const supervisorId = supervisorSelect.value;
-
       if (!interneeId || !supervisorId) return alert("Select both internee and supervisor.");
-
-      // Get supervisor name
       const supervisorSnap = await get(ref(db, "supervisors/" + supervisorId));
       const supervisorName = supervisorSnap.exists() ? supervisorSnap.val().name : null;
-
       if (!supervisorName) return alert("Supervisor not found.");
-
-      // Update student with supervisor ID and name
-      await update(ref(db, "students/" + interneeId), { supervisor: supervisorId, supervisorName: supervisorName });
-
+      await update(ref(db, "students/" + interneeId), { supervisor: supervisorId, supervisorName });
       alert("Supervisor attached successfully!");
-      updateCounts(); // Refresh the dropdown and active count
+      updateCounts();
     });
-
   </script>
 </body>
 </html>

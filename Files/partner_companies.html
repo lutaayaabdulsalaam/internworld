@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner Companies</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background: #f6f8fb; padding: 30px; color: #333; }
+
+    header {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 { color: #1e3a8a; font-size: 22px; }
+
+    .companies {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .company-card {
+      position: relative;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+      padding: 20px;
+      transition: 0.3s;
+    }
+
+    .company-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    }
+
+    .company-card h2 {
+      color: #1e3a8a;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .company-card p {
+      color: #555;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .students-list {
+      margin-top: 10px;
+      background: #f1f5f9;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .students-list p {
+      font-size: 13px;
+      color: #333;
+      margin-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .remove-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: 0.2s;
+    }
+
+    .remove-btn:hover { background: #b91c1c; }
+
+    .edit-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: #1e3a8a;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: 0.2s;
+    }
+
+    .edit-btn:hover { background: #162d69; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Partner Companies</h1>
+  </header>
+
+  <div class="companies" id="companiesContainer"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const companiesContainer = document.getElementById("companiesContainer");
+
+    onValue(ref(db, "companies"), (snapshot) => {
+      companiesContainer.innerHTML = "";
+
+      snapshot.forEach((companySnap) => {
+        const company = companySnap.val();
+        const companyName = company.companyName || "Unnamed Company";
+        const repName = company.name || "No representative";
+
+        const card = document.createElement("div");
+        card.className = "company-card";
+        card.innerHTML = `
+          <h2>${companyName}</h2>
+          <p><strong>Representative:</strong> ${repName}</p>
+          <button class="edit-btn">Edit</button>
+          <div class="students-list" id="students-${companySnap.key}">
+            <p><em>Loading students...</em></p>
+          </div>
+        `;
+        companiesContainer.appendChild(card);
+
+        const editBtn = card.querySelector(".edit-btn");
+        const studentsContainer = card.querySelector(".students-list");
+
+        let editMode = false; // toggle state
+
+        // Fetch students once to populate initial list
+        onValue(ref(db, "students"), (studSnap) => {
+          studentsContainer.innerHTML = "";
+          let found = false;
+
+          studSnap.forEach((studentChild) => {
+            const student = studentChild.val();
+            if (student.industrialSupervisor && student.industrialSupervisor === repName) {
+              found = true;
+              const studentP = document.createElement("p");
+              studentP.textContent = `${student.name} (${student.regNumber || "No Reg"})`;
+              studentsContainer.appendChild(studentP);
+            }
+          });
+
+          if (!found) studentsContainer.innerHTML = "<p>No students assigned yet.</p>";
+        });
+
+        editBtn.addEventListener("click", () => {
+          editMode = !editMode; // toggle
+
+          onValue(ref(db, "students"), (studSnap) => {
+            studentsContainer.innerHTML = "";
+            let found = false;
+
+            studSnap.forEach((studentChild) => {
+              const student = studentChild.val();
+              if (student.industrialSupervisor && student.industrialSupervisor === repName) {
+                found = true;
+                const studentP = document.createElement("p");
+                studentP.textContent = `${student.name} (${student.regNumber || "No Reg"})`;
+
+                if (editMode) {
+                  // Add remove button
+                  const removeBtn = document.createElement("button");
+                  removeBtn.className = "remove-btn";
+                  removeBtn.textContent = "Remove";
+                  removeBtn.addEventListener("click", async () => {
+                    await update(ref(db, `students/${studentChild.key}`), { industrialSupervisor: null });
+                    studentP.remove();
+                  });
+                  studentP.appendChild(removeBtn);
+                }
+
+                studentsContainer.appendChild(studentP);
+              }
+            });
+
+            if (!found) studentsContainer.innerHTML = "<p>No students assigned yet.</p>";
+          });
+        });
+
+      });
+    });
+  </script>
+</body>
+</html>

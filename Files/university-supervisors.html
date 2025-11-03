@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>University Supervisors</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background: #f6f8fb; color: #333; padding: 20px; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+    .profile { display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background: #007bff; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; text-transform: uppercase; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #eee; }
+    th { background: #f9fafb; font-weight: 600; }
+    tr:hover { background: #f1f5f9; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>University Supervisors</h1>
+    <div class="profile">
+      <div class="avatar" id="avatar">NN</div>
+      <span id="userName"></span>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Supervisor Name</th>
+        <th>Email</th>
+        <th>Department</th>
+      </tr>
+    </thead>
+    <tbody id="supervisorTable">
+      <tr><td colspan="4">Loading...</td></tr>
+    </tbody>
+  </table>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+    if(currentUser){
+      document.getElementById("userName").textContent = currentUser.name;
+      document.getElementById("avatar").textContent = currentUser.name.split(' ').map(n=>n[0]).join('').toUpperCase();
+    }
+
+    const tableBody = document.getElementById("supervisorTable");
+
+    function loadSupervisors(){
+      get(ref(db, "supervisors")).then(snapshot => {
+        tableBody.innerHTML = "";
+        if(snapshot.exists()){
+          snapshot.forEach(snap => {
+            const s = snap.val();
+            tableBody.innerHTML += `
+              <tr>
+                <td>${s.name || "-"}</td>
+                <td>${s.email || "-"}</td>
+                <td>${s.department || "somac"}</td>
+              </tr>`;
+          });
+        } else {
+          tableBody.innerHTML = "<tr><td colspan='4'>No supervisors found.</td></tr>";
+        }
+      }).catch(err => {
+        tableBody.innerHTML = `<tr><td colspan='4'>Error: ${err.message}</td></tr>`;
+      });
+    }
+
+    loadSupervisors();
+  </script>
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assigned Internees | Internship Tracking</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      background-color: #f6f8fb;
+      color: #333;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: #fff;
+      color: #1e3a8a;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    main {
+      padding: 30px 40px;
+      flex: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+    }
+
+    th, td {
+      text-align: left;
+      padding: 14px 18px;
+      font-size: 14px;
+    }
+
+    th {
+      background-color: #1e3a8a;
+      color: white;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+
+    tr:hover {
+      background-color: #eef2ff;
+    }
+
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      color: white;
+      font-size: 13px;
+      margin-right: 5px;
+      transition: 0.2s;
+    }
+
+    .btn-change {
+      background-color: #2563eb;
+    }
+    .btn-change:hover {
+      background-color: #1e40af;
+    }
+
+    .btn-detach {
+      background-color: #dc2626;
+    }
+    .btn-detach:hover {
+      background-color: #991b1b;
+    }
+
+    .back-btn:hover {
+      background-color: #163169;
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #6b7280;
+      font-size: 14px;
+      border-top: 1px solid #e5e7eb;
+      background-color: #f9fafb;
+      margin-top: 40px;
+    }
+
+    /* Simple modal styling for dropdown */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.4);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: #fff;
+      padding: 20px 30px;
+      border-radius: 10px;
+      width: 320px;
+      text-align: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    }
+
+    select {
+      width: 100%;
+      padding: 8px;
+      margin: 12px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .modal button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      margin: 5px;
+      cursor: pointer;
+      color: white;
+      font-size: 13px;
+    }
+
+    .modal .confirm {
+      background-color: #2563eb;
+    }
+
+    .modal .cancel {
+      background-color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Assigned Internees</h1>
+  </header>
+
+  <main>
+    <h2 style="color:#1e3a8a; margin-bottom:15px;">Students and Their University Supervisors</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Student Name</th>
+          <th>Registration Number</th>
+          <th>Supervisor Name</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="assignedTableBody">
+        <tr><td colspan="5" style="text-align:center; color:#6b7280;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <footer>Intern World | Assigned Internees</footer>
+
+  <!-- Modal for changing supervisor -->
+  <div class="modal" id="changeModal">
+    <div class="modal-content">
+      <h3 style="color:#1e3a8a;">Select New Supervisor</h3>
+      <select id="supervisorDropdown"></select>
+      <div>
+        <button class="confirm">Confirm</button>
+        <button class="cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const tableBody = document.getElementById("assignedTableBody");
+
+    const modal = document.getElementById("changeModal");
+    const dropdown = document.getElementById("supervisorDropdown");
+    const confirmBtn = modal.querySelector(".confirm");
+    const cancelBtn = modal.querySelector(".cancel");
+
+    let currentStudentKey = null;
+
+    async function getSupervisors() {
+      const snapshot = await get(ref(db, "supervisors"));
+      const supervisors = [];
+      snapshot.forEach(child => {
+        const s = child.val();
+        supervisors.push({ name: s.name, email: s.email });
+      });
+      return supervisors;
+    }
+
+    function openModal(supervisors, studentKey) {
+      currentStudentKey = studentKey;
+      dropdown.innerHTML = supervisors.map(s => `<option value="${s.email || s.name}">${s.name}</option>`).join("");
+      modal.style.display = "flex";
+    }
+
+    cancelBtn.onclick = () => modal.style.display = "none";
+
+    confirmBtn.onclick = async () => {
+      const selectedValue = dropdown.value;
+      const selectedName = dropdown.options[dropdown.selectedIndex].text;
+
+      if (selectedValue && currentStudentKey) {
+        await update(ref(db, "students/" + currentStudentKey), {
+          supervisor: selectedValue,
+          supervisorName: selectedName
+        });
+        alert("Supervisor changed successfully!");
+        modal.style.display = "none";
+      }
+    };
+
+    function loadAssignedInternees() {
+      onValue(ref(db, "students"), (snapshot) => {
+        tableBody.innerHTML = "";
+        let index = 0;
+
+        snapshot.forEach((child) => {
+          const student = child.val();
+          const key = child.key;
+
+          if (student.supervisor && student.supervisorName) {
+            index++;
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+              <td>${index}</td>
+              <td>${student.name}</td>
+              <td>${student.regNumber || "—"}</td>
+              <td>${student.supervisorName}</td>
+              <td>
+                <button class="btn btn-change">Change</button>
+                <button class="btn btn-detach">Detach</button>
+              </td>
+            `;
+
+            // DETACH with confirmation
+            tr.querySelector(".btn-detach").addEventListener("click", () => {
+              const confirmation = prompt(`Type "DETACH" to confirm removing ${student.name} from ${student.supervisorName}:`);
+              if (confirmation && confirmation.toUpperCase() === "DETACH") {
+                update(ref(db, "students/" + key), {
+                  supervisor: null,
+                  supervisorName: null
+                }).then(() => {
+                  tr.remove();
+                  alert("Student detached successfully.");
+                }).catch((err) => {
+                  alert("Error detaching: " + err.message);
+                });
+              }
+            });
+
+            // CHANGE using dropdown modal
+            tr.querySelector(".btn-change").addEventListener("click", async () => {
+              const supervisors = await getSupervisors();
+              if (supervisors.length > 0) openModal(supervisors, key);
+              else alert("No supervisors found.");
+            });
+
+            tableBody.appendChild(tr);
+          }
+        });
+
+        if (index === 0) {
+          tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#6b7280;">No assigned internees yet.</td></tr>`;
+        }
+      });
+    }
+
+    loadAssignedInternees();
+  </script>
+</body>
+</html>
