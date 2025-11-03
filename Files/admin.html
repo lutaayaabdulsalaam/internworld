@@ -68,6 +68,11 @@
       color: #1e3a8a;
       margin-bottom: 8px;
     }
+       .card h3 {
+      font-size: 20px;
+      color: #1e3a8a;
+      margin-bottom: 8px;
+    }
 
     .card p {
       font-size: 14px;
@@ -179,7 +184,13 @@
         <h2 id="activeInternships">0</h2>
         <p>Assigned Internees</p>
       </div>
+        <div class="card" id="logout">
+        <h3 id="totalCompanies">Logout</h3>
+        <p>Logout the user</p>
+      </div>
     </div>
+    </div>
+  
 
     <div class="forms">
       <div class="form-box">
@@ -267,7 +278,9 @@
     document.getElementById("companiesCard").addEventListener("click", () => {
     window.location.href = "partner_companies.html";
   });
-
+   document.getElementById("logout").addEventListener("click", () => {
+    window.location.href = "index.html";
+  });
 
     // Role-specific extra fields
     roleSelect.addEventListener("change", () => {
