@@ -70,11 +70,10 @@
       <p>Students under supervision</p>
       <div class="number" id="assignedCount">0</div>
     </div>
-    <div class="card">
+    <div class="card" id="rewardingsCard">
       <div class="card-icon">✅</div>
-      <h3>Approvals Pending</h3>
+      <h3>Internship Evaluation Report</h3>
       <p>Require your attention</p>
-      <div class="number">7</div>
     </div>
     <div class="card" id="reportsCard">
       <div class="card-icon">📄</div>
@@ -163,6 +162,8 @@
     document.getElementById("partnerCard").addEventListener("click",()=>{ window.location.href="partner-companies.html"; });
     document.getElementById("reportsCard").addEventListener("click",()=>{ window.location.href="university_supervisor-reports.html"; });
     document.getElementById("logoutCard").addEventListener("click",()=>{ window.location.href="logout.html"; });
+    document.getElementById("rewardingsCard").addEventListener("click", ()=>{ window.location.href = "internship-rewardings.html"; });
+
 
     let currentStudentId = "";
     function openModal(studentId){ currentStudentId=studentId; document.getElementById("evalModal").style.display="flex"; document.getElementById("progressFill").style.width="0%"; }

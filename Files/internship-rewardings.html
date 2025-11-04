@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Internship Rewardings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background: #f6f8fb; color: #333; padding: 20px; }
+    h2 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    th { background: #f9fafb; font-weight: 600; }
+    .small { font-size: 13px; color: #666; }
+
+    .status { display: inline-block; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: white; }
+    .excellent { background: #16a34a; }
+    .good { background: #3b82f6; }
+    .average { background: #f59e0b; }
+    .struggling { background: #f97316; }
+    .weak { background: #dc2626; }
+
+    .reward-btn { background-color: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .reward-btn:hover { background-color: #1d4ed8; }
+
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .small-muted { font-size: 13px; color: #666; }
+
+    .pdf-btn { background: #10b981; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-bottom: 15px; }
+
+    /* Modal styles */
+    .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; padding: 20px; }
+    .modal-content { background: white; padding: 20px; border-radius: 12px; width: 720px; max-width: 100%; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .modal-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .q { background:#fafafa; padding:10px; border-radius:8px; display:flex; flex-direction:column; gap:6px; }
+    .q label { font-weight:600; font-size:13px; }
+    .q input[type="number"] { padding:8px; border-radius:6px; border:1px solid #ddd; width:100%; font-size:14px; }
+    .modal-footer { display:flex; justify-content:space-between; align-items:center; margin-top:14px; }
+    .total-badge { font-weight:700; font-size:16px; }
+    .save-btn { background:#10b981; color:white; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+    .cancel-btn { background:#6b7280; color:white; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; }
+
+    @media (max-width:700px){
+      .modal-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="progress-header">
+    <h2>Reward Students</h2>
+    <div class="small-muted">Each question is out of 5 — total max: 40</div>
+  </div>
+
+  <!-- PDF Button -->
+  <button class="pdf-btn" id="createPDFBtn">Create Reports PDF</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Student Name</th>
+        <th>Position</th>
+        <th>Start Date</th>
+        <th>Task Completion</th>
+        <th>Reward Total</th>
+        <th>Performance</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="studentTable">
+      <tr><td colspan="7">Loading...</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Reward Modal -->
+  <div class="modal" id="rewardModal" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Reward Student</h3>
+        <div class="small-muted" id="modalStudentName"></div>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <div>
+          <div class="total-badge">Total: <span id="totalMarks">0</span> / 40</div>
+          <div class="small-muted">Score each question 0–5.</div>
+        </div>
+        <div>
+          <button class="cancel-btn" onclick="closeRewardModal()">Cancel</button>
+          <button class="save-btn" id="saveRewardBtn" onclick="saveReward()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- jsPDF library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, get, child, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc0whU6MFgH8YOuq6WBMvhEhV7pbsz0Ro",
+      authDomain: "internworld.firebaseapp.com",
+      databaseURL: "https://internworld-default-rtdb.firebaseio.com",
+      projectId: "internworld",
+      storageBucket: "internworld.firebasestorage.app",
+      messagingSenderId: "963772778365",
+      appId: "1:963772778365:web:4203f314d1bd9879f72e14",
+      measurementId: "G-MPXFR4X9VB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const currentUser = JSON.parse(localStorage.getItem("currentUser")) || { name: "Supervisor", id: null };
+
+    const questions = [
+      "Punctuality",
+      "Task Completion Quality",
+      "Teamwork / Collaboration",
+      "Communication Skills",
+      "Initiative & Problem Solving",
+      "Professionalism / Attitude",
+      "Technical Competence",
+      "Adaptability / Learning"
+    ];
+
+    const modalBody = document.getElementById("modalBody");
+    questions.forEach((q, idx) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "q";
+      wrapper.innerHTML = `
+        <label for="q${idx}">${idx+1}. ${q}</label>
+        <input type="number" id="q${idx}" min="0" max="5" step="1" value="0" oninput="onQuestionInput()" />
+      `;
+      modalBody.appendChild(wrapper);
+    });
+
+    let activeStudentId = null;
+    let activeStudentData = null;
+
+    function openRewardModal(studentId, studentData){
+      activeStudentId = studentId;
+      activeStudentData = studentData || {};
+      document.getElementById("modalStudentName").textContent = studentData.name || "";
+      get(child(ref(db), `rewardings/${studentId}`)).then(snap=>{
+        const data = snap.exists() ? snap.val() : null;
+        for(let i=0;i<8;i++){
+          const input = document.getElementById(`q${i}`);
+          input.value = data && data.questions ? data.questions[i] ?? 0 : 0;
+        }
+        updateTotalDisplay();
+        document.getElementById("rewardModal").style.display = "flex";
+      });
+    }
+
+    function closeRewardModal(){ document.getElementById("rewardModal").style.display = "none"; }
+
+    window.onQuestionInput = function(){
+      for(let i=0;i<8;i++){
+        const el = document.getElementById(`q${i}`);
+        let v = Number(el.value);
+        if(isNaN(v)) v = 0;
+        if(v < 0) v = 0;
+        if(v > 5) v = 5;
+        el.value = Math.round(v);
+      }
+      updateTotalDisplay();
+    };
+
+    function updateTotalDisplay(){
+      let total = 0;
+      for(let i=0;i<8;i++) total += Number(document.getElementById(`q${i}`).value || 0);
+      document.getElementById("totalMarks").textContent = total;
+    }
+
+    async function saveReward(){
+      if(!activeStudentId) return alert("No student selected.");
+      const answers = [];
+      for(let i=0;i<8;i++){
+        let v = Number(document.getElementById(`q${i}`).value || 0);
+        if(isNaN(v)) v = 0;
+        if(v < 0) v = 0;
+        if(v > 5) v = 5;
+        answers.push(Math.round(v));
+      }
+      const total = answers.reduce((a,b)=>a+b,0);
+      const payload = {
+        studentId: activeStudentId,
+        studentName: activeStudentData.name || "",
+        supervisor: currentUser.name || "",
+        questions: answers,
+        totalMarks: total,
+        timestamp: Date.now()
+      };
+      await set(ref(db, `rewardings/${activeStudentId}`), payload);
+      closeRewardModal();
+      loadStudents();
+    }
+
+    function computeLabel(total){
+      if(total >= 32) return { label: "Excellent", cls: "excellent" };
+      if(total >= 24) return { label: "Good", cls: "good" };
+      if(total >= 16) return { label: "Average", cls: "average" };
+      if(total >= 8) return { label: "Struggling", cls: "struggling" };
+      return { label: "Weak", cls: "weak" };
+    }
+
+    // --- Load students and populate table ---
+    const studentsData = []; // keep for PDF generation
+    async function loadStudents(){
+      const tbody = document.getElementById("studentTable");
+      tbody.innerHTML = "<tr><td colspan='7'>Loading...</td></tr>";
+
+      try{
+        const studentSnap = await get(ref(db, "students"));
+        if(!studentSnap.exists()){
+          tbody.innerHTML = "<tr><td colspan='7'>No students assigned.</td></tr>";
+          return;
+        }
+
+        studentsData.length = 0;
+        const students = [];
+        studentSnap.forEach(snap => {
+          const s = snap.val();
+          if(s.supervisorName === currentUser.name || s.supervisor === currentUser.id){
+            students.push({ id: snap.key, data: s });
+          }
+        });
+
+        tbody.innerHTML = "";
+        for(const sObj of students){
+          const [evalSnap, taskSnap, rewardSnap] = await Promise.allSettled([
+            get(child(ref(db), `evaluation/${sObj.id}`)),
+            get(ref(db,"tasks")),
+            get(child(ref(db), `rewardings/${sObj.id}`))
+          ]);
+
+          const evalData = evalSnap.status === "fulfilled" && evalSnap.value.exists() ? evalSnap.value.val() : {};
+          const rewardData = rewardSnap.status === "fulfilled" && rewardSnap.value.exists() ? rewardSnap.value.val() : null;
+
+          let totalTasks = 0, completedTasks = 0;
+          if(taskSnap.status === "fulfilled" && taskSnap.value.exists()){
+            taskSnap.value.forEach(t=>{
+              if(t.val().studentName === sObj.data.name){
+                totalTasks++;
+                if(t.val().taskdone) completedTasks++;
+              }
+            });
+          }
+          const taskCompletion = `${completedTasks} / ${totalTasks}`;
+          const position = evalData.position || sObj.data.position || "-";
+          const startDate = evalData.startDate || sObj.data.startDate || "-";
+          const totalMarks = rewardData?.totalMarks ?? "-";
+          const perf = totalMarks === "-" ? { label: "-", cls: "" } : computeLabel(Number(totalMarks));
+
+          studentsData.push({
+            name: sObj.data.name || "-",
+            position,
+            startDate,
+            taskCompletion,
+            totalMarks,
+            rewardData: rewardData?.questions || [0,0,0,0,0,0,0,0]
+          });
+
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${sObj.data.name || "-"}</td>
+            <td>${position}</td>
+            <td>${startDate}</td>
+            <td class="small">${taskCompletion}</td>
+            <td>${totalMarks === "-" ? "<span class='small-muted'>Not set</span>" : `<strong>${totalMarks}</strong>`}</td>
+            <td>${perf.label === "-" ? "<span class='small-muted'>-</span>" : `<span class='status ${perf.cls}'>${perf.label}</span>`}</td>
+            <td><button class="reward-btn" data-id="${sObj.id}">Reward</button></td>
+          `;
+          tbody.appendChild(row);
+        }
+
+        document.querySelectorAll(".reward-btn").forEach(btn=>{
+          btn.addEventListener("click",()=>{
+            const sid = btn.getAttribute("data-id");
+            const s = students.find(x=>x.id===sid);
+            openRewardModal(sid, s.data);
+          });
+        });
+
+      }catch(err){
+        console.error(err);
+        document.getElementById("studentTable").innerHTML = "<tr><td colspan='7'>Failed to load students.</td></tr>";
+      }
+    }
+
+    loadStudents();
+    document.getElementById("rewardModal").addEventListener("click", e=>{
+      if(e.target === e.currentTarget) closeRewardModal();
+    });
+
+    // --- PDF Generation ---
+    document.getElementById("createPDFBtn").addEventListener("click", async ()=>{
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      if(studentsData.length === 0) return alert("No student data to generate reports.");
+
+      studentsData.forEach((s, idx)=>{
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Student Evaluation Report`, 105, 20, { align: 'center' });
+        doc.setFontSize(14);
+        doc.text(`Name: ${s.name}`, 20, 40);
+        doc.text(`Position: ${s.position}`, 20, 50);
+        doc.text(`Start Date: ${s.startDate}`, 20, 60);
+
+        // Table
+        doc.setFont(undefined, 'bold');
+        doc.text("Evaluation Questions & Marks", 20, 75);
+        doc.setFont(undefined, 'normal');
+
+        const startY = 80;
+        s.rewardData.forEach((mark,i)=>{
+          doc.text(`${i+1}. ${questions[i]}:`, 20, startY + i*10);
+          doc.text(`${mark} / 5`, 150, startY + i*10);
+        });
+
+        doc.setFont(undefined, 'bold');
+        const total = s.rewardData.reduce((a,b)=>a+b,0);
+        doc.text(`Total Marks: ${total} / 40`, 20, startY + 90);
+
+        if(idx < studentsData.length - 1) doc.addPage();
+      });
+
+      doc.save(`Internship_Reports.pdf`);
+    });
+
+    window.saveReward = saveReward;
+    window.closeRewardModal = closeRewardModal;
+
+  </script>
+</body>
+</html>
